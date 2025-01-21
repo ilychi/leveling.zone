@@ -758,6 +758,9 @@ async function getExternalSources(ip: string) {
   return sources;
 }
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
   try {
     // 从请求头中获取客户端 IP
