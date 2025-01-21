@@ -35,8 +35,12 @@ yarn-error.log*
 next-env.d.ts
 
 # database files
+/data/db/*.BIN
 /data/db/*.mmdb
 /data/db/*.mmdb.gz
+/data/db/*.csv
+/data/db/*.ipdb
+/db/*.csv
 
 # IDE
 .idea

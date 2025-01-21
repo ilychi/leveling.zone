@@ -13,37 +13,6 @@
 
 ## 数据源
 
-### 中国数据源
-- 百度企服
-- 美图 IP
-- IP.CN
-- 太平洋 IP
-- IPIP.NET
-- VORE-API
-- 今日头条
-- 又拍云
-- 青桔 API
-- 知了 IP
-- 纯真 IP
-- 高德地图
-- 腾讯新闻
-- 美团地图
-
-### 国际数据源
-- Cloudflare
-- ident.me
-- UserAgent.info
-- httpbin.org
-- IP.SB
-- IPAPI.is
-- ipapi.co
-- IP-API.io
-- RealIP.cc
-- IPLark
-- ipquery.io
-- APIP.CC
-- IP138.xyz
-- Ping0.cc
 
 ## 技术栈
 
