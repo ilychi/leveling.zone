@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 基础样式 */
+html {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-size: 16px;
+}
+
+body {
+  @apply antialiased;
+}
+
+/* 导航栏样式 */
+.nav-container {
+  @apply relative flex flex-wrap items-center justify-between h-24 overflow-hidden font-medium border-b border-gray-200 md:overflow-visible lg:justify-center;
+}
+
+.logo-container {
+  @apply flex items-center justify-start w-1/4 h-full;
+}
+
+.logo {
+  @apply flex items-center py-4 space-x-2 text-xl font-extrabold text-gray-900 md:py-0;
+}
+
+.logo-icon {
+  @apply flex items-center justify-center w-10 h-10 text-white bg-gray-900 rounded-full;
+}
+
+/* 搜索框样式 */
+.input-container {
+  @apply relative flex items-center w-full gap-2;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.input-container input {
+  @apply w-full text-sm focus:outline-none transition-colors duration-200;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.input-container input:focus {
+  @apply border-gray-400;
+}
+
+.input-container input.invalid {
+  @apply border-red-500;
+}
+
+.input-container button {
+  @apply text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
+  height: 40px;
+  padding: 0 32px;
+  border-radius: 4px;
+  min-width: 120px;
+}
+
+/* 点状背景 */
+.bg-dot-black\/\[0\.2\] {
+  background-image: radial-gradient(#00000033 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 标题样式 */
+.title {
+  @apply py-12 font-sans text-6xl font-bold md:text-8xl lg:text-9xl;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+/* 工具提示样式 */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs text-white bg-black rounded bg-opacity-90 whitespace-nowrap;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
+}
+
+/* 页脚样式 */
+.footer-container {
+  @apply container flex flex-col items-center py-8 mx-auto gap-2 lg:gap-5 items-start sm:flex-row sm:items-start;
+}
+
+.footer-link {
+  @apply text-xs lg:text-sm leading-6 text-gray-500 hover:text-gray-900;
+}
+
+.social-link {
+  @apply text-gray-400 hover:text-gray-500;
+}
+
+/* 查询结果样式 */
+.result-container {
+  @apply w-full max-w-3xl mx-auto px-4 mt-8;
+}
+
+.result-card {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4;
+}
+
+.result-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.result-title {
+  @apply text-lg font-medium text-gray-900;
+}
+
+.result-source {
+  @apply text-sm text-gray-500;
+}
+
+.result-content {
+  @apply space-y-4;
+}
+
+.result-group {
+  @apply border-t border-gray-100 pt-4 first:border-0 first:pt-0;
+}
+
+.result-group-title {
+  @apply text-sm font-medium text-gray-900 mb-2;
+}
+
+.result-item {
+  @apply flex items-start py-1;
+}
+
+.result-label {
+  @apply text-sm text-gray-500 w-32 flex-shrink-0;
+}
+
+.result-value {
+  @apply text-sm text-gray-900 flex-1;
+}
+
+.result-tag {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800;
+}
+
+.result-icon {
+  @apply flex-shrink-0 mr-2 text-gray-400;
+  width: 16px;
+  height: 16px;
+}
+
+/* 表格样式 */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+th {
+  @apply text-sm font-medium text-gray-700 py-2;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+td {
+  @apply text-sm text-gray-900 py-2;
+  border-top: 1px solid #f3f4f6;
+}
+
+tr:hover {
+  background-color: #f9fafb;
+}
+
+.border-t {
+  border-color: #f3f4f6;
+}
+
+/* 页面布局 */
+.container {
+  @apply w-full;
+  max-width: none;
+  padding: 0 16px;
+}
+
+main {
+  @apply min-h-screen w-full;
+}
+
+section {
+  @apply w-full;
+}
