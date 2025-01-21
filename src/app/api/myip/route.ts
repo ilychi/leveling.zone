@@ -329,15 +329,16 @@ async function getExternalSources(ip: string) {
         const data = await ipcnResponse.json();
         if (data.rs === 1) {
           const addressParts = data.address.split(' ');
+          const isp = addressParts.pop() || '-'; // 获取最后一个部分作为运营商
+          const location = addressParts.filter(Boolean).join(' • '); // 其余部分作为地理位置，用 • 连接
+          
           sources.ipcn = {
             ip: data.ip || '-',
             location: {
-              country: addressParts[0] || '-',
-              province: addressParts[1] || '-',
-              city: addressParts[2] || '-'
+              country: location || '-'
             },
             network: {
-              isp: addressParts[3] || '-'
+              isp: isp
             }
           };
         }
@@ -563,19 +564,13 @@ async function getExternalSources(ip: string) {
       if (zxincResponse.ok) {
         const data = await zxincResponse.json();
         if (data.code === 0) {
-          const locationParts = data.data.location.split('–');
-          const local = data.data.local || '';
-          
           sources.zxinc = {
             ip: data.data.myip || '-',
             location: {
-              country: locationParts[0]?.trim() || '-',
-              province: locationParts[1]?.trim() || '-',
-              city: locationParts[2]?.trim() || '-',
-              district: locationParts[3]?.trim() || '-'
+              country: data.data.country || '-',
             },
             network: {
-              isp: local || '-'
+              isp: data.data.local || '-'
             },
             meta: {
               version: data.data.ver4,
@@ -691,25 +686,24 @@ async function getExternalSources(ip: string) {
       const ping0Response = await fetchWithTimeout('https://ping0.cc/geo');
       if (ping0Response.ok) {
         const text = await ping0Response.text();
-        const parts = text.split(' — ');
+        const parts = text.split(' AS');
         if (parts.length >= 2) {
-          const [basicInfo, networkInfo] = parts;
-          const [ip, ...locationParts] = basicInfo.split(' ');
+          const [ipAndLocation, asnAndOrg] = parts;
+          const [ip, ...locationParts] = ipAndLocation.trim().split(' ');
           const location = locationParts.join(' ');
-          const [isp, asn, ...orgParts] = networkInfo ? networkInfo.split(' ') : ['-', '-', '-'];
-          const org = orgParts.join(' ');
+          
+          const orgParts = asnAndOrg.split(' ');
+          const asn = orgParts[0];
+          const organization = orgParts.slice(1).join(' ');
           
           sources.ping0 = {
             ip: ip || '-',
             location: {
-              country: location.split(' • ')[0] || '-',
-              region: location.split(' • ')[1] || '-',
-              city: location.split(' • ')[2] || '-'
+              country: location || '-'
             },
             network: {
-              isp: isp || '-',
-              asn: asn?.replace('AS', '') || '-',
-              organization: org || '-'
+              asn: asn || '-',
+              organization: organization || '-'
             }
           };
         }
