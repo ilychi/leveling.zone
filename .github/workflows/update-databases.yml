@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * *'  # 每天零点运行
   workflow_dispatch:      # 允许手动触发
 
+permissions:
+  contents: write      # 添加写入权限用于创建 release
+
 jobs:
   update-databases:
     runs-on: ubuntu-latest
@@ -20,7 +23,8 @@ jobs:
           
       - name: Install dependencies
         run: |
-          npm ci
+          npm install
+          npm ls
         continue-on-error: false
           
       - name: Update databases
@@ -33,6 +37,9 @@ jobs:
           
           # 直接运行更新脚本
           npm run update-db
+          
+          # 列出下载的文件
+          ls -la data/db/
         continue-on-error: false
           
       - name: Create Release
@@ -54,7 +61,5 @@ jobs:
           files: |
             data/db/*.mmdb
             data/db/*.BIN
-            data/db/*.ipdb
-            data/db/*.csv
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
