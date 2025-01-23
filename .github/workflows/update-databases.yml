@@ -2,7 +2,7 @@ name: Update IP Databases
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 00:00 运行
+    - cron: '0 13 * * *'  # 每天下午1点运行
   workflow_dispatch:      # 允许手动触发
 
 jobs:
@@ -19,39 +19,35 @@ jobs:
           node-version: '20'
           
       - name: Install dependencies
-        run: npm ci
-        
+        run: |
+          npm install
+          npm install -g ip2location-bin-to-mmdb
+          
       - name: Create data directory
-        run: mkdir -p data
+        run: mkdir -p data/db
+        
+      - name: Start Next.js server
+        run: |
+          npm run build
+          npm run start &
+          sleep 10  # 等待服务器启动
         
       - name: Update databases
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
-          MAXMIND_ASN_URL: ${{ secrets.MAXMIND_ASN_URL }}
-          MAXMIND_CITY_URL: ${{ secrets.MAXMIND_CITY_URL }}
-          MAXMIND_COUNTRY_URL: ${{ secrets.MAXMIND_COUNTRY_URL }}
-          DBIP_ASN_URL: ${{ secrets.DBIP_ASN_URL }}
-          DBIP_CITY_URL: ${{ secrets.DBIP_CITY_URL }}
         run: |
-          npm run update-db
+          curl http://localhost:3000/api/cron/update-db
           
       - name: Create Release
+        id: create_release
         uses: softprops/action-gh-release@v1
-        if: success()
         with:
-          name: IP Databases Update ${{ github.run_number }}
-          tag_name: update-${{ github.run_number }}
+          tag_name: ip-db-${{ github.run_number }}
+          name: IP Database Update ${{ github.run_number }}
           body: |
-            Automated IP databases update
-            
-            Updated databases:
-            - GeoLite2 (ASN, City, Country)
-            - DB-IP (ASN, City)
-            - IP2Location
-          files: |
-            data/*.mmdb
-            data/*.BIN
+            自动更新IP数据库
+            更新时间：${{ github.event.schedule }}
+          files: data/db/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
