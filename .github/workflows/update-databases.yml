@@ -23,6 +23,7 @@ jobs:
           
       - name: Update databases
         env:
+          IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
         run: |
           # 直接运行更新脚本
@@ -40,11 +41,13 @@ jobs:
             更新时间：${{ github.event.schedule }}
             
             更新内容：
+            - IP2Location 数据库
             - MaxMind GeoLite2 数据库
             - DB-IP 数据库
             - IPinfo 数据库
           files: |
             data/db/*.mmdb
+            data/db/*.BIN
             data/db/*.ipdb
             data/db/*.csv
         env:

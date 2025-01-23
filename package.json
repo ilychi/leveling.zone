@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^4.2.0",
+    "@maxmind/mmdb-writer": "^0.1.2",
     "@react-leaflet/core": "^2.1.0",
     "@tailwindcss/forms": "^0.5.10",
     "@vercel/blob": "^0.27.1",
