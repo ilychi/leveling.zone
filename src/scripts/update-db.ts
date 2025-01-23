@@ -76,6 +76,24 @@ const databases = {
       tokenName: 'IPINFO_TOKEN',
     },
   ],
+  // 其他数据库
+  others: [
+    {
+      name: 'QQWry',
+      url: 'https://unpkg.com/qqwry.ipdb/qqwry.ipdb',
+      filename: 'qqwry.ipdb',
+    },
+    {
+      name: 'iptoasn-asn',
+      url: 'https://cdn.jsdelivr.net/npm/@ip-location-db/iptoasn-asn/iptoasn-asn-ipv4.csv',
+      filename: 'iptoasn-asn.csv',
+    },
+    {
+      name: 'as-info',
+      url: 'https://raw.githubusercontent.com/ipverse/asn-info/refs/heads/master/as.csv',
+      filename: 'as-info.csv',
+    },
+  ],
 };
 
 async function downloadFile(url: string, outputPath: string): Promise<void> {
@@ -151,6 +169,18 @@ async function updateDatabases(): Promise<void> {
       continue;
     }
 
+    try {
+      console.log(`下载 ${db.name}...`);
+      await downloadFile(db.url, path.join(outputDir, db.filename));
+      console.log(`${db.name} 下载完成`);
+    } catch (error) {
+      console.error(`下载 ${db.name} 失败:`, error);
+    }
+  }
+
+  // 下载其他数据库
+  console.log('正在更新其他数据库...');
+  for (const db of databases.others) {
     try {
       console.log(`下载 ${db.name}...`);
       await downloadFile(db.url, path.join(outputDir, db.filename));

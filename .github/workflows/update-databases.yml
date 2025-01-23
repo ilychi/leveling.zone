@@ -58,8 +58,12 @@ jobs:
             - MaxMind GeoLite2 数据库
             - DB-IP 数据库
             - IPinfo 数据库
+            - 纯真 IP 数据库
+            - ASN 信息数据库
           files: |
             data/db/*.mmdb
             data/db/*.BIN
+            data/db/*.ipdb
+            data/db/*.csv
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
