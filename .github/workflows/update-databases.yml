@@ -2,7 +2,7 @@ name: Update IP Databases
 
 on:
   schedule:
-    - cron: '0 13 * * *'  # 每天下午1点运行
+    - cron: '0 0 * * *'  # 每天零点运行
   workflow_dispatch:      # 允许手动触发
 
 jobs:
@@ -19,21 +19,10 @@ jobs:
           node-version: '20'
           
       - name: Install dependencies
-        run: |
-          npm install
+        run: npm install
           
-      - name: Setup IP2Location Converter
-        run: |
-          # 下载并安装 IP2Location 转换工具
-          wget https://github.com/ip2location/ip2location-bin-to-mmdb-converter/releases/download/v1.0.0/ip2location-bin-to-mmdb-converter_1.0.0_amd64.deb
-          sudo dpkg -i ip2location-bin-to-mmdb-converter_1.0.0_amd64.deb
-          
-      - name: Create data directory
-        run: mkdir -p data/db
-        
       - name: Update databases
         env:
-          IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
         run: |
           # 直接运行更新脚本
@@ -51,11 +40,9 @@ jobs:
             更新时间：${{ github.event.schedule }}
             
             更新内容：
-            - IP2Location 数据库
-            - IPInfo ASN 数据库
-            - GeoCN 数据库
-            - QQWry 数据库
-            - IPtoASN 数据库
+            - MaxMind GeoLite2 数据库
+            - DB-IP 数据库
+            - IPinfo 数据库
           files: |
             data/db/*.mmdb
             data/db/*.ipdb

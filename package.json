@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "update-db": "ts-node scripts/update-db.ts"
+    "update-db": "ts-node src/scripts/update-db.ts",
+    "schedule-update": "ts-node src/scripts/schedule-update.ts"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^4.2.0",

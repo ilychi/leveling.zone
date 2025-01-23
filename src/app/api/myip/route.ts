@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import { headers } from 'next/headers';
-import { formatASN } from '@/utils/network';
 
 // 获取 Cloudflare 信息
 async function getCloudflareInfo() {
   try {
     const [traceResponse, metaResponse] = await Promise.all([
       fetch('https://1.1.1.1/cdn-cgi/trace'),
-      fetch('https://speed.cloudflare.com/meta'),
+      fetch('https://speed.cloudflare.com/meta')
     ]);
 
     if (!traceResponse.ok || !metaResponse.ok) return null;
@@ -35,7 +32,7 @@ async function getCloudflareInfo() {
       network: {
         asn: metaData.asn,
         organization: metaData.asOrganization,
-      },
+      }
     };
   } catch (error) {
     console.error('Cloudflare查询失败:', error);
@@ -77,7 +74,7 @@ async function getExternalSources(ip: string) {
           network: {
             isp: data.isp,
             type: data.net,
-          },
+          }
         };
       }
     } catch (error) {
@@ -103,7 +100,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: data.data.isp,
-            },
+            }
           };
         }
       }
@@ -129,7 +126,7 @@ async function getExternalSources(ip: string) {
           network: {
             asn: data.asn,
             organization: data.aso,
-          },
+          }
         };
       }
     } catch (error) {
@@ -156,7 +153,7 @@ async function getExternalSources(ip: string) {
             asn: data.asn,
             organization: data.asn_organization,
             isp: data.isp,
-          },
+          }
         };
       }
     } catch (error) {
@@ -165,31 +162,31 @@ async function getExternalSources(ip: string) {
 
     // ipapi.is 数据源
     try {
-      const ipapiisResponse = await fetchWithTimeout('https://api.ipapi.is');
-      if (ipapiisResponse.ok) {
-        const data = await ipapiisResponse.json();
-        sources.ipapis = {
+      const ipapiResponse = await fetchWithTimeout('https://api.ipapi.is');
+      if (ipapiResponse.ok) {
+        const data = await ipapiResponse.json();
+        sources.ipapi = {
           ip: data.ip,
           location: {
             country: data.location.country,
             country_code: data.location.country_code,
-            region: data.location.state,
+            state: data.location.state,
             city: data.location.city,
-            timezone: data.location.timezone,
             latitude: data.location.latitude,
             longitude: data.location.longitude,
+            timezone: data.location.timezone,
           },
           network: {
-            asn: formatASN(data.asn.asn),
+            asn: data.asn.asn,
             organization: data.asn.org,
-            isp: data.company.name,
+            type: data.asn.type,
           },
           security: {
+            is_proxy: data.is_proxy,
             is_datacenter: data.is_datacenter,
             is_vpn: data.is_vpn,
-            is_proxy: data.is_proxy,
             is_tor: data.is_tor,
-          },
+          }
         };
       }
     } catch (error) {
@@ -213,9 +210,9 @@ async function getExternalSources(ip: string) {
             longitude: data.longitude,
           },
           network: {
-            asn: formatASN(data.asn),
+            asn: data.asn,
             organization: data.org,
-          },
+          }
         };
       }
     } catch (error) {
@@ -245,7 +242,7 @@ async function getExternalSources(ip: string) {
             isProxy: data.suspiciousFactors.isProxy,
             isSpam: data.suspiciousFactors.isSpam,
             isTorNode: data.suspiciousFactors.isTorNode,
-          },
+          }
         };
       }
     } catch (error) {
@@ -262,7 +259,7 @@ async function getExternalSources(ip: string) {
           location: {
             country: data.location.split(', ')[0],
             province: data.location.split(', ')[1],
-          },
+          }
         };
       }
     } catch (error) {
@@ -271,20 +268,17 @@ async function getExternalSources(ip: string) {
 
     // pconline 数据源
     try {
-      const pconlineResponse = await fetchWithTimeout(
-        'https://whois.pconline.com.cn/ipJson.jsp?json=true',
-        {
-          headers: {
-            'Accept-Charset': 'GB2312,utf-8;q=0.7,*;q=0.3',
-          },
+      const pconlineResponse = await fetchWithTimeout('https://whois.pconline.com.cn/ipJson.jsp?json=true', {
+        headers: {
+          'Accept-Charset': 'GB2312,utf-8;q=0.7,*;q=0.3'
         }
-      );
+      });
       if (pconlineResponse.ok) {
         const buffer = await pconlineResponse.arrayBuffer();
         const decoder = new TextDecoder('gb2312');
         const text = decoder.decode(buffer);
         const jsonData = JSON.parse(text);
-
+        
         sources.pconline = {
           ip: jsonData.ip || '-',
           location: {
@@ -293,8 +287,8 @@ async function getExternalSources(ip: string) {
             city: jsonData.city || '-',
           },
           network: {
-            isp: jsonData.addr || '-',
-          },
+            isp: jsonData.addr || '-'
+          }
         };
       }
     } catch (error) {
@@ -303,9 +297,7 @@ async function getExternalSources(ip: string) {
 
     // 美图 IP 数据源
     try {
-      const meituResponse = await fetchWithTimeout(
-        'https://webapi-pc.meitu.com/common/ip_location'
-      );
+      const meituResponse = await fetchWithTimeout('https://webapi-pc.meitu.com/common/ip_location');
       if (meituResponse.ok) {
         const data = await meituResponse.json();
         if (data.code === 0) {
@@ -322,7 +314,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: ipData.isp,
-            },
+            }
           };
         }
       }
@@ -339,15 +331,15 @@ async function getExternalSources(ip: string) {
           const addressParts = data.address.split(' ');
           const isp = addressParts.pop() || '-'; // 获取最后一个部分作为运营商
           const location = addressParts.filter(Boolean).join(' • '); // 其余部分作为地理位置，用 • 连接
-
+          
           sources.ipcn = {
             ip: data.ip || '-',
             location: {
-              country: location || '-',
+              country: location || '-'
             },
             network: {
-              isp: isp,
-            },
+              isp: isp
+            }
           };
         }
       }
@@ -373,7 +365,7 @@ async function getExternalSources(ip: string) {
           network: {
             type: data.ip_routing_type,
             connection: data.connection_type,
-          },
+          }
         };
       }
     } catch (error) {
@@ -382,9 +374,7 @@ async function getExternalSources(ip: string) {
 
     // 百度企服API数据源
     try {
-      const qifuResponse = await fetchWithTimeout(
-        'https://qifu-api.baidubce.com/ip/local/geo/v1/district'
-      );
+      const qifuResponse = await fetchWithTimeout('https://qifu-api.baidubce.com/ip/local/geo/v1/district');
       if (qifuResponse.ok) {
         const data = await qifuResponse.json();
         if (data.code === 'Success') {
@@ -398,7 +388,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: data.data.owner || data.data.isp,
-            },
+            }
           };
         }
       }
@@ -422,7 +412,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: data.isp,
-            },
+            }
           };
         }
       }
@@ -446,7 +436,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: data.data.location[4],
-            },
+            }
           };
         }
       }
@@ -470,7 +460,7 @@ async function getExternalSources(ip: string) {
             network: {
               isp: data.ipdata.isp,
               type: data.ipinfo.type,
-            },
+            }
           };
         }
       }
@@ -480,9 +470,7 @@ async function getExternalSources(ip: string) {
 
     // 今日头条数据源
     try {
-      const toutiaoResponse = await fetchWithTimeout(
-        'https://www.toutiao.com/stream/widget/local_weather/data/'
-      );
+      const toutiaoResponse = await fetchWithTimeout('https://www.toutiao.com/stream/widget/local_weather/data/');
       if (toutiaoResponse.ok) {
         const data = await toutiaoResponse.json();
         if (data.success) {
@@ -495,7 +483,7 @@ async function getExternalSources(ip: string) {
             },
             network: {
               isp: data.data.isp,
-            },
+            }
           };
         }
       }
@@ -517,7 +505,7 @@ async function getExternalSources(ip: string) {
           },
           network: {
             isp: data.remote_addr_location.isp,
-          },
+          }
         };
       }
     } catch (error) {
@@ -526,9 +514,7 @@ async function getExternalSources(ip: string) {
 
     // 高德地图数据源
     try {
-      const amapResponse = await fetchWithTimeout(
-        'https://restapi.amap.com/v3/ip?key=0113a13c88697dcea6a445584d535837'
-      );
+      const amapResponse = await fetchWithTimeout('https://restapi.amap.com/v3/ip?key=0113a13c88697dcea6a445584d535837');
       if (amapResponse.ok) {
         const data = await amapResponse.json();
         if (data.status === '1') {
@@ -537,7 +523,7 @@ async function getExternalSources(ip: string) {
             location: {
               province: data.province || '-',
               city: data.city || '-',
-            },
+            }
           };
         }
       }
@@ -562,9 +548,9 @@ async function getExternalSources(ip: string) {
               longitude: data.Longitude,
             },
             network: {
-              asn: formatASN(data.asn),
+              asn: data.asn,
               organization: data.org,
-            },
+            }
           };
         }
       }
@@ -584,13 +570,13 @@ async function getExternalSources(ip: string) {
               country: data.data.country || '-',
             },
             network: {
-              isp: data.data.local || '-',
+              isp: data.data.local || '-'
             },
             meta: {
               version: data.data.ver4,
               count4: data.data.count4,
-              count6: data.data.count6,
-            },
+              count6: data.data.count6
+            }
           };
         }
       }
@@ -614,7 +600,7 @@ async function getExternalSources(ip: string) {
             longitude: data.location.longitude,
           },
           network: {
-            asn: formatASN(data.isp.asn),
+            asn: data.isp.asn,
             organization: data.isp.org,
             isp: data.isp.isp,
           },
@@ -623,7 +609,7 @@ async function getExternalSources(ip: string) {
             is_proxy: data.risk.is_proxy,
             is_datacenter: data.risk.is_datacenter,
             risk_score: data.risk.risk_score,
-          },
+          }
         };
       }
     } catch (error) {
@@ -647,87 +633,124 @@ async function getExternalSources(ip: string) {
             longitude: data.longitude || '-',
           },
           network: {
-            asn: formatASN(data.asn),
+            asn: data.asn || '-',
             organization: data.asn_org || '-',
           },
           meta: {
             zip_code: data.zip_code,
-            metro_code: data.metro_code,
-          },
+            metro_code: data.metro_code
+          }
         };
       }
     } catch (error) {
       console.error('ip138.xyz查询失败:', error);
     }
 
-    // 美图IP查询暂时禁用
-    /*try {
-      const meituanResponse = await fetchWithTimeout('https://meituan.com/api/ip');
-      if (meituanResponse.ok) {
-        const data = await meituanResponse.json();
-        sources.meituan = {
-          ip: data.ip || '-',
-          location: {
-            country: data.country || '-',
-            region: data.region || '-',
-            city: data.city || '-',
-          },
-        };
-      }
-    } catch (error) {
-      console.error('美图IP查询失败:', error);
-    }*/
-
-    // leak查询暂时禁用
-    /*try {
+    // leak 数据源
+    try {
       const leakResponse = await fetchWithTimeout(`/api/leak?ip=${ip}`);
       if (leakResponse.ok) {
         const data = await leakResponse.json();
-        sources.leak = {
-          ip: data.ip || '-',
-          location: {
-            country: data.country || '-',
-            region: data.region || '-',
-            city: data.city || '-',
-          },
-        };
+        if (data.success) {
+          sources.leak = {
+            ip: data.data.ip,
+            location: {
+              country: data.data.location.country || '-',
+              province: data.data.location.province || '-',
+              city: data.data.location.city || '-',
+              district: data.data.location.district || '-',
+              area_name: data.data.location.area_name || '-',
+              detail: data.data.location.detail || '-',
+              latitude: data.data.location.latitude,
+              longitude: data.data.location.longitude,
+            },
+            accuracy: {
+              confidence: data.data.accuracy.confidence,
+              level: data.data.accuracy.level,
+              is_foreign: data.data.accuracy.is_foreign,
+            },
+            meta: {
+              city_id: data.data.meta.city_id,
+              area_id: data.data.meta.area_id,
+              city_pinyin: data.data.meta.city_pinyin,
+            }
+          };
+        }
       }
     } catch (error) {
       console.error('leak查询失败:', error);
-    }*/
+    }
 
     // ping0.cc 数据源
     try {
-      const ip =
-        headers().get('x-real-ip') || headers().get('x-forwarded-for')?.split(',')[0] || '-';
-      const ping0Response = await fetchWithTimeout(`https://ping0.cc/ip/${ip}`);
+      const ping0Response = await fetchWithTimeout('https://ping0.cc/geo');
       if (ping0Response.ok) {
         const text = await ping0Response.text();
         const parts = text.split(' AS');
         if (parts.length >= 2) {
           const [ipAndLocation, asnAndOrg] = parts;
-          const [responseIp, ...locationParts] = ipAndLocation.trim().split(' ');
+          const [ip, ...locationParts] = ipAndLocation.trim().split(' ');
           const location = locationParts.join(' ');
-
+          
           const orgParts = asnAndOrg.split(' ');
           const asn = orgParts[0];
           const organization = orgParts.slice(1).join(' ');
-
+          
           sources.ping0 = {
-            ip: responseIp || '-',
+            ip: ip || '-',
             location: {
-              country: location || '-',
+              country: location || '-'
             },
             network: {
-              asn: formatASN(asn),
-              organization: organization || '-',
-            },
+              asn: asn || '-',
+              organization: organization || '-'
+            }
           };
         }
       }
     } catch (error) {
       console.error('ping0.cc查询失败:', error);
     }
+
+    // 美团地图数据源
+    try {
+      const meituanResponse = await fetchWithTimeout(
+        `https://apimobile.meituan.com/locate/v2/ip/loc?client_source=webapi&rgeo=true&ip=${ip}`
+      );
+      if (meituanResponse.ok) {
+        const ipLocData = await meituanResponse.json();
+        if (ipLocData.data?.lat && ipLocData.data?.lng) {
+          const latlngResponse = await fetchWithTimeout(
+            `https://apimobile.meituan.com/group/v1/city/latlng/${ipLocData.data.lat},${ipLocData.data.lng}?tag=0`
+          );
+          if (latlngResponse.ok) {
+            const latlngData = await latlngResponse.json();
+            sources.meituan = {
+              ip: ip,
+              location: {
+                latitude: ipLocData.data.lat,
+                longitude: ipLocData.data.lng,
+                country: ipLocData.data.rgeo?.country || '-',
+                province: ipLocData.data.rgeo?.province || '-',
+                city: ipLocData.data.rgeo?.city || '-',
+                district: ipLocData.data.rgeo?.district || '-',
+                area_name: latlngData.data?.areaName || '-',
+                detail: latlngData.data?.detail || '-'
+              },
+              meta: {
+                city_id: latlngData.data?.dpCityId,
+                area_id: latlngData.data?.area,
+                city_pinyin: latlngData.data?.cityPinyin,
+                is_foreign: latlngData.data?.isForeign || false
+              }
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('美团地图查询失败:', error);
+    }
+
   } catch (error) {
     console.error('外部数据源查询失败:', error);
   }
@@ -735,60 +758,42 @@ async function getExternalSources(ip: string) {
   return sources;
 }
 
-// 获取ping0数据
-async function getPing0Info(ip: string) {
-  try {
-    const response = await axios.get(`https://ping0.cc/geo/${ip}`);
-    const data = response.data;
-    return {
-      country: data.country || '',
-      region: data.region || '',
-      city: data.city || '',
-      isp: data.isp || '',
-      asn: data.asn || '',
-      asnOrg: data.asnOrg || '',
-    };
-  } catch (error) {
-    console.error('获取ping0数据失败:', error);
-    return null;
-  }
-}
-
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
-  const headersList = headers();
-  const ip = (
-    headersList.get('x-real-ip') ||
-    headersList.get('x-forwarded-for')?.split(',')[0] ||
-    '127.0.0.1'
-  ).trim();
-
   try {
-    // 获取ping0数据
-    const ping0Data = await getPing0Info(ip);
+    // 从请求头中获取客户端 IP
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const realIP = request.headers.get('x-real-ip');
+    const clientIP = forwardedFor?.split(',')[0] || realIP || request.ip || '未知';
 
-    // 并行获取所有数据源
-    const [cloudflareInfo, externalSources] = await Promise.all([
-      getCloudflareInfo(),
-      getExternalSources(ip),
-    ]);
+    if (clientIP && clientIP !== '未知') {
+      // 并行获取所有数据源
+      const [cloudflareInfo, externalSources] = await Promise.all([
+        getCloudflareInfo(),
+        getExternalSources(clientIP)
+      ]);
 
-    // 合并所有数据源
-    const sources = {
-      ...(cloudflareInfo && { cloudflare: cloudflareInfo }),
-      ...externalSources,
-    };
+      // 合并所有数据源
+      const sources = {
+        ...(cloudflareInfo && { cloudflare: cloudflareInfo }),
+        ...externalSources
+      };
 
-    return NextResponse.json({
-      ip,
-      ping0: ping0Data,
-      sources,
-      timestamp: new Date().toISOString(),
-    });
+      return NextResponse.json({
+        ip: clientIP,
+        sources,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return NextResponse.json({ ip: clientIP });
   } catch (error) {
-    console.error('IP信息获取失败:', error);
-    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
+    console.error('MyIP查询失败:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
