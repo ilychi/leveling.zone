@@ -26,6 +26,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -34,13 +35,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# database files
-/data/db/*.BIN
-/data/db/*.mmdb
-/data/db/*.mmdb.gz
-/data/db/*.csv
-/data/db/*.ipdb
-/db/*.csv
+# IP Databases
+/data/db/
+*.mmdb
+*.ipdb
+*.bin
+*.csv
 
 # IDE
 .idea

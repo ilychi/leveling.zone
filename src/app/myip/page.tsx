@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { countryToFlag } from '@/utils/country';
+import { formatNetworkInfo } from '@/utils/network';
 
 interface IPInfo {
   ip: string;
@@ -27,8 +28,47 @@ interface IPInfo {
 
 function MyIPContent() {
   const [ipInfo, setIpInfo] = useState<IPInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 数据源名称映射
+  const sourceNames: { [key: string]: string } = {
+    // 中国数据源
+    'qifu': '🇨🇳 百度企服',
+    'meitu': '🇨🇳 美图IP',
+    'ipcn': '🇨🇳 IP.CN',
+    'pconline': '🇨🇳 太平洋IP',
+    'ipip': '🇨🇳 IPIP.NET',
+    'vore': '🇨🇳 VORE-API',
+    'toutiao': '🇨🇳 今日头条',
+    'upyun': '🇨🇳 又拍云',
+    'qjqq': '🇨🇳 青桔API',
+    'zhale': '🇨🇳 ZHALE.ME',
+    'zxinc': '🇨🇳 ZXINC',
+    'amap': '🇨🇳 高德地图',
+    'qqnews': '🇨🇳 腾讯新闻',
+    'meituan': '🇨🇳 美团地图',
+    // 国际数据源
+    'cloudflare': '☁️ Cloudflare',
+    'identme': '🌐 ident.me',
+    'useragentinfo': '🔍 UserAgent.info',
+    'httpbin': '🌍 httpbin.org',
+    'ipsb': '🌐 IP.SB',
+    'ipapis': '🔎 IPAPI.is',
+    'ipapico': '🌍 ipapi.co',
+    'ipapiio': '🌐 IP-API.io',
+    'realip': '🌏 RealIP.cc',
+    'iplark': '🦅 IPLark',
+    'ipquery': '🌏 ipquery.io',
+    'apipcc': '🌍 APIP.CC',
+    'ip138': '🌐 IP138.xyz',
+    'ping0': '🌐 Ping0.cc',
+    'leak': '🔍 地址泄露检测'
+  };
+
+  const getSourceName = (source: string) => {
+    return sourceNames[source] || source;
+  };
 
   useEffect(() => {
     const fetchIPInfo = async () => {
@@ -42,14 +82,14 @@ function MyIPContent() {
       } catch (err) {
         setError(err instanceof Error ? err.message : '未知错误');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchIPInfo();
   }, []);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
@@ -129,42 +169,8 @@ function MyIPContent() {
                   <tbody>
                     {ipInfo.sources && Object.entries(ipInfo.sources)
                       .sort(([sourceA], [sourceB]) => {
-                        const sourceMap: { [key: string]: string } = {
-                          // 中国数据源
-                          'qifu': '🇨🇳 百度企服',
-                          'meitu': '🇨🇳 美图IP',
-                          'ipcn': '🇨🇳 IP.CN',
-                          'pconline': '🇨🇳 太平洋IP',
-                          'ipip': '🇨🇳 IPIP.NET',
-                          'vore': '🇨🇳 VORE-API',
-                          'toutiao': '🇨🇳 今日头条',
-                          'upyun': '🇨🇳 又拍云',
-                          'qjqq': '🇨🇳 青桔API',
-                          'zhale': '🇨🇳 ZHALE.ME',
-                          'zxinc': '🇨🇳 ZXINC',
-                          'amap': '🇨🇳 高德地图',
-                          'qqnews': '🇨🇳 腾讯新闻',
-                          'meituan': '🇨🇳 Honeypot',
-                          // 国际数据源
-                          'cloudflare': '☁️ Cloudflare',
-                          'identme': '🌐 ident.me',
-                          'useragentinfo': '🔍 UserAgent.info',
-                          'httpbin': '🌍 httpbin.org',
-                          'ipsb': '🌐 IP.SB',
-                          'ipapi': '🔎 IPAPI.is',
-                          'ipapico': '🌍 ipapi.co',
-                          'ipapiio': '🌐 IP-API.io',
-                          'realip': '🌏 RealIP.cc',
-                          'iplark': '🦅 IPLark',
-                          'ipquery': '🌏 ipquery.io',
-                          'apipcc': '🌍 APIP.CC',
-                          'ip138': '🌐 IP138.xyz',
-                          'ping0': '🌐 Ping0.cc',
-                          'leak': '🔍 地址泄露检测'
-                        };
-                        
-                        const nameA = sourceMap[sourceA] || sourceA;
-                        const nameB = sourceMap[sourceB] || sourceB;
+                        const nameA = getSourceName(sourceA);
+                        const nameB = getSourceName(sourceB);
                         
                         // 如果都是中国数据源或都不是中国数据源，按原始顺序排序
                         const isChineseA = nameA.includes('🇨🇳');
@@ -175,50 +181,12 @@ function MyIPContent() {
                         return 0;
                       })
                       .map(([source, data]: [string, any]) => {
-                        const getSourceName = (source: string) => {
-                          const sourceMap: { [key: string]: string } = {
-                            // 中国数据源
-                            'qifu': '🇨🇳 百度企服',
-                            'meitu': '🇨🇳 美图IP',
-                            'ipcn': '🇨🇳 IP.CN',
-                            'pconline': '🇨🇳 太平洋IP',
-                            'ipip': '🇨🇳 IPIP.NET',
-                            'vore': '🇨🇳 VORE-API',
-                            'toutiao': '🇨🇳 今日头条',
-                            'upyun': '🇨🇳 又拍云',
-                            'qjqq': '🇨🇳 青桔API',
-                            'zhale': '🇨🇳 ZHALE.ME',
-                            'zxinc': '🇨🇳 ZXINC',
-                            'amap': '🇨🇳 高德地图',
-                            'qqnews': '🇨🇳 腾讯新闻',
-                            'meituan': '🇨🇳 美团地图',
-                            // 国际数据源
-                            'cloudflare': '☁️ Cloudflare',
-                            'identme': '🌐 ident.me',
-                            'useragentinfo': '🔍 UserAgent.info',
-                            'httpbin': '🌍 httpbin.org',
-                            'ipsb': '🌐 IP.SB',
-                            'ipapi': '🔎 IPAPI.is',
-                            'ipapico': '🌍 ipapi.co',
-                            'ipapiio': '🌐 IP-API.io',
-                            'realip': '🌏 RealIP.cc',
-                            'iplark': '🦅 IPLark',
-                            'ipquery': '🌏 ipquery.io',
-                            'apipcc': '🌍 APIP.CC',
-                            'ip138': '🌐 IP138.xyz',
-                            'ping0': '🌐 Ping0.cc',
-                            'leak': '🔍 地址泄露检测'
-                          };
-                          return sourceMap[source] || source;
-                        };
-
                         const getSourceData = (data: any) => {
                           // 优先使用API返回的IP信息，如果没有则显示'-'
                           const ip = data.ip && data.ip !== '::1' ? data.ip : '-';
                           
-                          const network = data.network?.asn ? 
-                            `AS${data.network.asn}${data.network.organization ? ` | ${data.network.organization}` : ''}${data.network.isp ? ` | ${data.network.isp}` : ''}` : 
-                            (data.network?.isp || '-');
+                          // 使用工具函数处理网络信息
+                          const network = formatNetworkInfo(data.network || {});
                           
                           const location = data.location ? [
                             data.location.country,
