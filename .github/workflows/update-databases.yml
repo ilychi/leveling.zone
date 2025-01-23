@@ -21,7 +21,12 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          npm install -g ip2location-bin-to-mmdb
+          
+      - name: Setup IP2Location Converter
+        run: |
+          # 下载并安装 IP2Location 转换工具
+          wget https://github.com/ip2location/ip2location-bin-to-mmdb-converter/releases/download/v1.0.0/ip2location-bin-to-mmdb-converter_1.0.0_amd64.deb
+          sudo dpkg -i ip2location-bin-to-mmdb-converter_1.0.0_amd64.deb
           
       - name: Create data directory
         run: mkdir -p data/db
@@ -30,7 +35,6 @@ jobs:
         env:
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
-          CRON_SECRET: test_cron_secret
         run: |
           # 直接运行更新脚本
           npm run update-db
@@ -48,10 +52,13 @@ jobs:
             
             更新内容：
             - IP2Location 数据库
-            - MaxMind GeoLite2 数据库
-            - DB-IP 数据库
+            - IPInfo ASN 数据库
+            - GeoCN 数据库
+            - QQWry 数据库
+            - IPtoASN 数据库
           files: |
             data/db/*.mmdb
-            data/db/*.BIN
+            data/db/*.ipdb
+            data/db/*.csv
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
