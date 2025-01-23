@@ -19,15 +19,21 @@ jobs:
           node-version: '20'
           
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm ci
+        continue-on-error: false
           
       - name: Update databases
         env:
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
         run: |
+          # 创建数据目录
+          mkdir -p data/db
+          
           # 直接运行更新脚本
           npm run update-db
+        continue-on-error: false
           
       - name: Create Release
         id: create_release
