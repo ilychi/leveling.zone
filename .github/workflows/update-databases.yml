@@ -26,28 +26,32 @@ jobs:
       - name: Create data directory
         run: mkdir -p data/db
         
-      - name: Start Next.js server
-        run: |
-          npm run build
-          npm run start &
-          sleep 10  # 等待服务器启动
-        
       - name: Update databases
         env:
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
+          CRON_SECRET: test_cron_secret
         run: |
-          curl http://localhost:3000/api/cron/update-db
+          # 直接运行更新脚本
+          npm run update-db
           
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
+        if: success()
         with:
           tag_name: ip-db-${{ github.run_number }}
           name: IP Database Update ${{ github.run_number }}
           body: |
             自动更新IP数据库
             更新时间：${{ github.event.schedule }}
-          files: data/db/*
+            
+            更新内容：
+            - IP2Location 数据库
+            - MaxMind GeoLite2 数据库
+            - DB-IP 数据库
+          files: |
+            data/db/*.mmdb
+            data/db/*.BIN
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
