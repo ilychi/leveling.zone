@@ -227,16 +227,19 @@ async function tencentReverseGeocode(lat: number, lng: number) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const ip = searchParams.get('ip');
+    // 优先使用请求参数中的 IP
+    let ip = searchParams.get('ip');
 
+    // 如果没有提供 IP，则尝试从请求头获取
     if (!ip) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: '请提供IP地址',
-        },
-        { status: 400 }
-      );
+      // 尝试从各种请求头获取真实 IP
+      ip =
+        request.headers.get('x-real-ip') ||
+        request.headers.get('x-forwarded-for')?.split(',')[0] ||
+        request.ip ||
+        request.headers.get('x-vercel-forwarded-for')?.split(',')[0] ||
+        request.headers.get('x-forwarded-host') ||
+        '127.0.0.1';
     }
 
     // 首先使用美团API获取经纬度
@@ -246,6 +249,13 @@ export async function GET(request: NextRequest) {
         {
           success: false,
           message: '无法获取位置信息',
+          ip: ip,
+          headers: {
+            'x-real-ip': request.headers.get('x-real-ip'),
+            'x-forwarded-for': request.headers.get('x-forwarded-for'),
+            'x-vercel-forwarded-for': request.headers.get('x-vercel-forwarded-for'),
+            'x-forwarded-host': request.headers.get('x-forwarded-host'),
+          },
         },
         { status: 400 }
       );
