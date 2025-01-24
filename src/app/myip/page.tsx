@@ -26,48 +26,46 @@ interface IPInfo {
   };
 }
 
+interface SourceConfig {
+  name: string;
+  order: number;
+}
+
 function MyIPContent() {
   const [ipInfo, setIpInfo] = useState<IPInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 数据源名称映射
-  const sourceNames: { [key: string]: string } = {
+  // 数据源配置（包含显示名称和排序）
+  const sourceConfig: Record<string, SourceConfig> = {
     // 中国数据源
-    'qifu': '🇨🇳 百度企服',
-    'meitu': '🇨🇳 美图IP',
-    'ipcn': '🇨🇳 IP.CN',
-    'pconline': '🇨🇳 太平洋IP',
-    'ipip': '🇨🇳 IPIP.NET',
-    'vore': '🇨🇳 VORE-API',
-    'toutiao': '🇨🇳 今日头条',
-    'upyun': '🇨🇳 又拍云',
-    'qjqq': '🇨🇳 青桔API',
-    'zhale': '🇨🇳 ZHALE.ME',
-    'zxinc': '🇨🇳 ZXINC',
-    'amap': '🇨🇳 高德地图',
-    'qqnews': '🇨🇳 腾讯新闻',
-    'meituan': '🇨🇳 美团地图',
+    'qifu': { name: '🇨🇳 百度企服', order: 0 },
+    'amap': { name: '🇨🇳 高德地图', order: 1 },
+    'ipcn': { name: '🇨🇳 IP.CN', order: 2 },
+    'ipip': { name: '🇨🇳 IPIP.NET', order: 3 },
+    'qjqq': { name: '🇨🇳 青桔API', order: 4 },
+    'pconline': { name: '🇨🇳 太平洋IP', order: 5 },
+    'qqnews': { name: '🇨🇳 腾讯新闻', order: 6 },
+    'useragentinfo': { name: '🇨🇳 UA.info', order: 7 },
+    'vore': { name: '🇨🇳 VORE-API', order: 8 },
+    'upyun': { name: '🇨🇳 又拍云', order: 9 },
+    'zhale': { name: '🇨🇳 ZHALE.ME', order: 10 },
+    'zxinc': { name: '🇨🇳 ZXINC', order: 11 },
     // 国际数据源
-    'cloudflare': '☁️ Cloudflare',
-    'identme': '🌐 ident.me',
-    'useragentinfo': '🔍 UserAgent.info',
-    'httpbin': '🌍 httpbin.org',
-    'ipsb': '🌐 IP.SB',
-    'ipapis': '🔎 IPAPI.is',
-    'ipapico': '🌍 ipapi.co',
-    'ipapiio': '🌐 IP-API.io',
-    'realip': '🌏 RealIP.cc',
-    'iplark': '🦅 IPLark',
-    'ipquery': '🌏 ipquery.io',
-    'apipcc': '🌍 APIP.CC',
-    'ip138': '🌐 IP138.xyz',
-    'ping0': '🌐 Ping0.cc',
-    'leak': '🔍 地址泄露检测'
+    'apipcc': { name: '🌍 apip.cc', order: 12 },
+    'browserscan': { name: '🌐 browserscan.com', order: 13 },
+    'cloudflare': { name: '☁️ Cloudflare', order: 14 },
+    'identme': { name: '🌐 ident.me', order: 15 },
+    'ipapiio': { name: '🌐 IP-API.io', order: 16 },
+    'ipsb': { name: '🌐 IP.SB', order: 17 },
+    'ip138': { name: '🌐 ip138.xyz', order: 18 },
+    'ipapico': { name: '🌍 ipapi.co', order: 19 },
+    'ipapis': { name: '🔎 ipapi.is', order: 20 },
+    'ipquery': { name: '🌏 ipquery.io', order: 21 }
   };
 
   const getSourceName = (source: string) => {
-    return sourceNames[source] || source;
+    return sourceConfig[source]?.name || source;
   };
 
   useEffect(() => {
@@ -133,29 +131,24 @@ function MyIPContent() {
         <div className="container mx-auto md:w-10/12">
           <div className="flex justify-center items-center relative bg-white bg-dot-black/[0.2] mb-6 flex-col">
             <div className="absolute pointer-events-none inset-0 flex items-center justify-center bg-white [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]"></div>
-            <h1 className="title text-gray-900">
-              你的 IP 地址
-            </h1>
-            <div className="pb-6 text-sm relative z-10">
-              <div className="relative group">
-                <a href="/" className="px-3 py-1 text-xs rounded-full cursor-pointer text-neutral-500 bg-neutral-100 hover:bg-neutral-200 transition-colors duration-200">
-                  想要查询其他 IP ?
+            {ipInfo && (
+              <div className="text-center">
+                <div className="py-12 font-sans text-2xl font-bold sm:text-5xl md:text-6xl lg:text-7xl">
+                  <span className="font-mono">{ipInfo.ip}</span>
+                </div>
+                <a className="pb-6 text-sm" href={`/ip/query/?ip=${ipInfo.ip}`}>
+                  <div className="relative group">
+                    <span className="px-3 py-1 text-xs rounded-full cursor-pointer text-neutral-500 bg-neutral-100">
+                      此 IP 是你访问本站的 IP
+                    </span>
+                  </div>
                 </a>
               </div>
-            </div>
+            )}
           </div>
 
           {ipInfo && (
             <div className="container mx-auto px-4 md:px-8 lg:px-16 xl:px-32">
-              <div className="text-center mb-8">
-                <div className="text-4xl font-bold mb-4">{ipInfo.ip}</div>
-                {ipInfo.location?.country_code && (
-                  <div className="text-xl">
-                    {countryToFlag(ipInfo.location.country_code)} {ipInfo.location.country}
-                  </div>
-                )}
-              </div>
-
               <div className="w-full overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -169,24 +162,31 @@ function MyIPContent() {
                   <tbody>
                     {ipInfo.sources && Object.entries(ipInfo.sources)
                       .sort(([sourceA], [sourceB]) => {
-                        const nameA = getSourceName(sourceA);
-                        const nameB = getSourceName(sourceB);
-                        
-                        // 如果都是中国数据源或都不是中国数据源，按原始顺序排序
-                        const isChineseA = nameA.includes('🇨🇳');
-                        const isChineseB = nameB.includes('🇨🇳');
-                        
-                        if (isChineseA && !isChineseB) return -1;
-                        if (!isChineseA && isChineseB) return 1;
-                        return 0;
+                        const orderA = sourceConfig[sourceA]?.order ?? 999;
+                        const orderB = sourceConfig[sourceB]?.order ?? 999;
+                        return orderA - orderB;
                       })
                       .map(([source, data]: [string, any]) => {
                         const getSourceData = (data: any) => {
-                          // 优先使用API返回的IP信息，如果没有则显示'-'
                           const ip = data.ip && data.ip !== '::1' ? data.ip : '-';
                           
-                          // 使用工具函数处理网络信息
-                          const network = formatNetworkInfo(data.network || {});
+                          // 处理网络信息
+                          const networkInfo = {
+                            asn: data.network?.asn,
+                            organization: data.network?.organization || data.network?.isp || data.network?.type,
+                            name: data.network?.name
+                          };
+
+                          // 处理中国运营商显示
+                          let network = '';
+                          if (data.location?.country === '中国' && data.network?.isp) {
+                            // 提取纯运营商名称（去掉地区信息）
+                            network = data.network.isp.match(/(电信|联通|移动|铁通|广电|教育网)/)?.[0] || data.network.isp;
+                          } else {
+                            // 使用工具函数格式化网络信息
+                            const formattedNetwork = formatNetworkInfo(networkInfo);
+                            network = formattedNetwork.asn || formattedNetwork.organization || '-';
+                          }
                           
                           const location = data.location ? [
                             data.location.country,
@@ -219,7 +219,7 @@ function MyIPContent() {
                               {sourceData.network}
                             </td>
                             <td className="py-3 pl-4 text-sm text-gray-900">
-                              {sourceData.countryCode && countryToFlag(sourceData.countryCode)}{' '}
+                              {sourceData.countryCode && !getSourceName(source).includes('🇨🇳') && countryToFlag(sourceData.countryCode)}{' '}
                               {sourceData.location}
                             </td>
                           </tr>

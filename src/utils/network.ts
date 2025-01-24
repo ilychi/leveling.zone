@@ -1,41 +1,46 @@
 interface NetworkInfo {
   asn?: string | number;
   organization?: string;
-  type?: string;
-  domain?: string;
+  name?: string;
   route?: string;
-  isp?: string;
-  [key: string]: any;
+  domain?: string;
+  type?: string;
 }
 
-export const formatNetworkInfo = (network: NetworkInfo = {}): string => {
-  const { asn, organization, type, domain, route, isp, ...rest } = network;
+export const formatASN = (asn?: string | number, organization?: string, name?: string) => {
+  if (!asn) return undefined;
 
-  const parts: string[] = [];
+  // 格式化ASN号码
+  const asnNumber = asn.toString().replace(/[^0-9]/g, '');
+  const asnPart = `AS${asnNumber}`;
 
-  if (asn) {
-    parts.push(`AS${asn}`);
+  // 如果没有组织信息，只返回ASN号码
+  if (!organization && !name) return asnPart;
+
+  // 提取组织简称（第一个单词）
+  const orgParts = organization?.split(/[\s,]+/) || [];
+  const shortName = orgParts[0] || '';
+
+  // 使用完整组织名称
+  const fullName = organization || name || '';
+
+  // 如果简称和完整名称相同，或者没有简称，只显示两部分
+  if (!shortName || shortName === fullName) {
+    return `${asnPart} | ${fullName}`;
   }
 
-  if (organization) {
-    parts.push(organization);
-  }
+  // 返回完整格式：AS号码 | 简称 | 完整名称
+  return `${asnPart} | ${shortName} | ${fullName}`;
+};
 
-  if (isp && isp !== organization) {
-    parts.push(isp);
-  }
+export const formatNetworkInfo = (network: NetworkInfo = {}) => {
+  const { asn, organization, name, route, domain, type } = network;
 
-  if (type) {
-    parts.push(type);
-  }
-
-  if (domain) {
-    parts.push(domain);
-  }
-
-  if (route) {
-    parts.push(route);
-  }
-
-  return parts.filter(Boolean).join(' | ');
+  return {
+    asn: formatASN(asn, organization, name),
+    organization: organization || name,
+    route,
+    domain,
+    type,
+  };
 };
