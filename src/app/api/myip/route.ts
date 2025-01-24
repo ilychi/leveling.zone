@@ -301,35 +301,6 @@ async function getExternalSources(ip: string) {
       console.error('pconline查询失败:', error);
     }
 
-    // 美图 IP 数据源
-    try {
-      const meituResponse = await fetchWithTimeout(
-        'https://webapi-pc.meitu.com/common/ip_location'
-      );
-      if (meituResponse.ok) {
-        const data = await meituResponse.json();
-        if (data.code === 0) {
-          const ipData = data.data[Object.keys(data.data)[0]];
-          sources.meitu = {
-            location: {
-              country: ipData.nation,
-              country_code: ipData.nation_code,
-              province: ipData.province,
-              city: ipData.city,
-              latitude: ipData.latitude,
-              longitude: ipData.longitude,
-              timezone: ipData.time_zone,
-            },
-            network: {
-              isp: ipData.isp,
-            },
-          };
-        }
-      }
-    } catch (error) {
-      console.error('美图IP查询失败:', error);
-    }
-
     // ip.cn 数据源
     try {
       const ipcnResponse = await fetchWithTimeout('https://www.ip.cn/api/index?type=0');
@@ -662,42 +633,6 @@ async function getExternalSources(ip: string) {
     } catch (error) {
       console.error('ip138.xyz查询失败:', error);
     }
-
-    // 美图IP查询暂时禁用
-    /*try {
-      const meituanResponse = await fetchWithTimeout('https://meituan.com/api/ip');
-      if (meituanResponse.ok) {
-        const data = await meituanResponse.json();
-        sources.meituan = {
-          ip: data.ip || '-',
-          location: {
-            country: data.country || '-',
-            region: data.region || '-',
-            city: data.city || '-',
-          },
-        };
-      }
-    } catch (error) {
-      console.error('美图IP查询失败:', error);
-    }*/
-
-    // leak查询暂时禁用
-    /*try {
-      const leakResponse = await fetchWithTimeout(`/api/leak?ip=${ip}`);
-      if (leakResponse.ok) {
-        const data = await leakResponse.json();
-        sources.leak = {
-          ip: data.ip || '-',
-          location: {
-            country: data.country || '-',
-            region: data.region || '-',
-            city: data.city || '-',
-          },
-        };
-      }
-    } catch (error) {
-      console.error('leak查询失败:', error);
-    }*/
 
     // browserscan 数据源
     try {
