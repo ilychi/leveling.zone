@@ -68,6 +68,7 @@ async function meituanGeocode(ip: string) {
           ]
             .filter(Boolean)
             .join(' '),
+          adcode: ipLocData.data.rgeo?.adcode || '-',
         },
         meta: {
           source: '美团地图',
@@ -75,6 +76,8 @@ async function meituanGeocode(ip: string) {
           city_id: latlngData.data?.dpCityId,
           area_id: latlngData.data?.area,
           city_pinyin: latlngData.data?.cityPinyin,
+          from_where: ipLocData.data.fromwhere,
+          is_foreign: latlngData.data?.isForeign || false,
         },
       },
     };
@@ -98,12 +101,27 @@ async function amapReverseGeocode(lat: number, lng: number) {
         location: {
           latitude: lat,
           longitude: lng,
-          ...data.regeocode?.addressComponent,
+          country: data.regeocode?.addressComponent?.country,
+          province: data.regeocode?.addressComponent?.province,
+          city:
+            data.regeocode?.addressComponent?.city?.[0] ||
+            data.regeocode?.addressComponent?.province,
+          district: data.regeocode?.addressComponent?.district,
+          street: data.regeocode?.addressComponent?.streetNumber?.street,
+          street_number: data.regeocode?.addressComponent?.streetNumber?.number,
+          township: data.regeocode?.addressComponent?.township,
           formatted_address: data.regeocode?.formatted_address,
+          adcode: data.regeocode?.addressComponent?.adcode,
+          citycode: data.regeocode?.addressComponent?.citycode,
         },
         meta: {
           source: '高德地图',
           timestamp: new Date().toISOString(),
+          business_areas: data.regeocode?.addressComponent?.businessAreas || [],
+          township_code: data.regeocode?.addressComponent?.towncode,
+          street_location: data.regeocode?.addressComponent?.streetNumber?.location,
+          street_direction: data.regeocode?.addressComponent?.streetNumber?.direction,
+          street_distance: data.regeocode?.addressComponent?.streetNumber?.distance,
         },
       },
     };
@@ -127,12 +145,28 @@ async function baiduReverseGeocode(lat: number, lng: number) {
         location: {
           latitude: lat,
           longitude: lng,
-          ...data.result?.addressComponent,
+          country: data.result?.addressComponent?.country,
+          province: data.result?.addressComponent?.province,
+          city: data.result?.addressComponent?.city,
+          district: data.result?.addressComponent?.district,
+          street: data.result?.addressComponent?.street,
+          street_number: data.result?.addressComponent?.street_number,
+          town: data.result?.addressComponent?.town,
           formatted_address: data.result?.formatted_address,
+          adcode: data.result?.addressComponent?.adcode,
         },
         meta: {
           source: '百度地图',
           timestamp: new Date().toISOString(),
+          business: data.result?.business,
+          business_areas: data.result?.business_info || [],
+          city_level: data.result?.addressComponent?.city_level,
+          town_code: data.result?.addressComponent?.town_code,
+          direction: data.result?.addressComponent?.direction,
+          distance: data.result?.addressComponent?.distance,
+          country_code: data.result?.addressComponent?.country_code,
+          country_code_iso: data.result?.addressComponent?.country_code_iso,
+          country_code_iso2: data.result?.addressComponent?.country_code_iso2,
         },
       },
     };
@@ -156,12 +190,29 @@ async function tencentReverseGeocode(lat: number, lng: number) {
         location: {
           latitude: lat,
           longitude: lng,
-          ...data.result?.address_component,
-          formatted_address: data.result?.formatted_addresses?.recommend,
+          nation: data.result?.address_component?.nation,
+          province: data.result?.address_component?.province,
+          city: data.result?.address_component?.city,
+          district: data.result?.address_component?.district,
+          street: data.result?.address_component?.street,
+          street_number: data.result?.address_component?.street_number,
+          formatted_address:
+            data.result?.formatted_addresses?.standard_address || data.result?.address,
         },
         meta: {
           source: '腾讯地图',
           timestamp: new Date().toISOString(),
+          ad_info: data.result?.ad_info,
+          address_reference: {
+            famous_area: data.result?.address_reference?.famous_area,
+            landmark_l2: data.result?.address_reference?.landmark_l2,
+            business_area: data.result?.address_reference?.business_area,
+            town: data.result?.address_reference?.town,
+            street: data.result?.address_reference?.street,
+            crossroad: data.result?.address_reference?.crossroad,
+          },
+          recommend_address: data.result?.formatted_addresses?.recommend,
+          rough_address: data.result?.formatted_addresses?.rough,
         },
       },
     };
@@ -188,7 +239,7 @@ export async function GET(request: NextRequest) {
 
     // 首先使用美团API获取经纬度
     const meituanResult = await meituanGeocode(ip);
-    if (!meituanResult?.success) {
+    if (!meituanResult?.success || !meituanResult.data) {
       return NextResponse.json(
         {
           success: false,
