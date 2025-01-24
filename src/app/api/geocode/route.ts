@@ -55,19 +55,11 @@ async function meituanGeocode(ip: string) {
           province: ipLocData.data.rgeo?.province || '-',
           city: ipLocData.data.rgeo?.city || '-',
           district: ipLocData.data.rgeo?.district || '-',
-          detail: latlngData.data?.detail || '-',
-          area_name: latlngData.data?.areaName || '-',
-          street: latlngData.data?.address || '-',
-          formatted_address: [
-            ipLocData.data.rgeo?.country,
-            ipLocData.data.rgeo?.province,
-            ipLocData.data.rgeo?.city,
-            ipLocData.data.rgeo?.district,
-            latlngData.data?.areaName,
-            latlngData.data?.detail,
-          ]
-            .filter(Boolean)
-            .join(' '),
+          formatted_address: `${ipLocData.data.rgeo?.country || ''}${
+            ipLocData.data.rgeo?.province || ''
+          }${ipLocData.data.rgeo?.city || ''}${ipLocData.data.rgeo?.district || ''}${
+            latlngData.data?.detail || ''
+          }${latlngData.data?.areaName ? `(${latlngData.data.areaName})` : ''}`,
           adcode: ipLocData.data.rgeo?.adcode || '-',
         },
         meta: {
@@ -95,33 +87,38 @@ async function amapReverseGeocode(lat: number, lng: number) {
   try {
     const response = await fetchWithTimeout(url);
     const data = await response.json();
+    const addressComponent = data.regeocode?.addressComponent;
+    const streetNumber = addressComponent?.streetNumber;
+    const formatted_address = `${addressComponent?.country || ''}${
+      addressComponent?.province || ''
+    }${addressComponent?.city?.[0] || addressComponent?.province || ''}${
+      addressComponent?.district || ''
+    }${addressComponent?.township || ''}${streetNumber?.street || ''}${streetNumber?.number || ''}${
+      addressComponent?.township ? `(${addressComponent.township})` : ''
+    }`;
+    const alt_address = data.regeocode?.formatted_address;
+
     return {
       success: true,
       data: {
         location: {
           latitude: lat,
           longitude: lng,
-          country: data.regeocode?.addressComponent?.country,
-          province: data.regeocode?.addressComponent?.province,
-          city:
-            data.regeocode?.addressComponent?.city?.[0] ||
-            data.regeocode?.addressComponent?.province,
-          district: data.regeocode?.addressComponent?.district,
-          street: data.regeocode?.addressComponent?.streetNumber?.street,
-          street_number: data.regeocode?.addressComponent?.streetNumber?.number,
-          township: data.regeocode?.addressComponent?.township,
-          formatted_address: data.regeocode?.formatted_address,
-          adcode: data.regeocode?.addressComponent?.adcode,
-          citycode: data.regeocode?.addressComponent?.citycode,
+          country: addressComponent?.country,
+          province: addressComponent?.province,
+          city: addressComponent?.city?.[0] || addressComponent?.province,
+          district: addressComponent?.district,
+          formatted_address:
+            formatted_address +
+            (alt_address && alt_address !== formatted_address ? `/${alt_address}` : ''),
+          adcode: addressComponent?.adcode,
+          citycode: addressComponent?.citycode,
         },
         meta: {
           source: '高德地图',
           timestamp: new Date().toISOString(),
-          business_areas: data.regeocode?.addressComponent?.businessAreas || [],
-          township_code: data.regeocode?.addressComponent?.towncode,
-          street_location: data.regeocode?.addressComponent?.streetNumber?.location,
-          street_direction: data.regeocode?.addressComponent?.streetNumber?.direction,
-          street_distance: data.regeocode?.addressComponent?.streetNumber?.distance,
+          business_areas: addressComponent?.businessAreas || [],
+          township_code: addressComponent?.towncode,
         },
       },
     };
@@ -139,34 +136,32 @@ async function baiduReverseGeocode(lat: number, lng: number) {
   try {
     const response = await fetchWithTimeout(url);
     const data = await response.json();
+    const addressComponent = data.result?.addressComponent;
+
     return {
       success: true,
       data: {
         location: {
           latitude: lat,
           longitude: lng,
-          country: data.result?.addressComponent?.country,
-          province: data.result?.addressComponent?.province,
-          city: data.result?.addressComponent?.city,
-          district: data.result?.addressComponent?.district,
-          street: data.result?.addressComponent?.street,
-          street_number: data.result?.addressComponent?.street_number,
-          town: data.result?.addressComponent?.town,
-          formatted_address: data.result?.formatted_address,
-          adcode: data.result?.addressComponent?.adcode,
+          country: addressComponent?.country,
+          province: addressComponent?.province,
+          city: addressComponent?.city,
+          district: addressComponent?.district,
+          formatted_address: `${addressComponent?.country || ''}${
+            addressComponent?.province || ''
+          }${addressComponent?.city || ''}${addressComponent?.district || ''}${
+            addressComponent?.street || ''
+          }${addressComponent?.street_number || ''}`,
+          adcode: addressComponent?.adcode,
         },
         meta: {
           source: '百度地图',
           timestamp: new Date().toISOString(),
           business: data.result?.business,
           business_areas: data.result?.business_info || [],
-          city_level: data.result?.addressComponent?.city_level,
-          town_code: data.result?.addressComponent?.town_code,
-          direction: data.result?.addressComponent?.direction,
-          distance: data.result?.addressComponent?.distance,
-          country_code: data.result?.addressComponent?.country_code,
-          country_code_iso: data.result?.addressComponent?.country_code_iso,
-          country_code_iso2: data.result?.addressComponent?.country_code_iso2,
+          city_level: addressComponent?.city_level,
+          town_code: addressComponent?.town_code,
         },
       },
     };
@@ -184,20 +179,31 @@ async function tencentReverseGeocode(lat: number, lng: number) {
   try {
     const response = await fetchWithTimeout(url);
     const data = await response.json();
+    const addressComponent = data.result?.address_component;
+    const formatted_addresses = data.result?.formatted_addresses;
+    const landmark = data.result?.address_reference?.landmark_l2;
+
+    const standard_address = `${addressComponent?.nation || ''}${addressComponent?.province || ''}${
+      addressComponent?.city || ''
+    }${addressComponent?.district || ''}${addressComponent?.street || ''}${
+      addressComponent?.street_number || ''
+    }`;
+    const recommend_address = formatted_addresses?.recommend;
+    const landmark_info = landmark ? `[${landmark.title}]` : '';
+
     return {
       success: true,
       data: {
         location: {
           latitude: lat,
           longitude: lng,
-          nation: data.result?.address_component?.nation,
-          province: data.result?.address_component?.province,
-          city: data.result?.address_component?.city,
-          district: data.result?.address_component?.district,
-          street: data.result?.address_component?.street,
-          street_number: data.result?.address_component?.street_number,
-          formatted_address:
-            data.result?.formatted_addresses?.standard_address || data.result?.address,
+          nation: addressComponent?.nation,
+          province: addressComponent?.province,
+          city: addressComponent?.city,
+          district: addressComponent?.district,
+          formatted_address: `${standard_address}${
+            recommend_address ? `/${recommend_address}` : ''
+          }${landmark_info}`,
         },
         meta: {
           source: '腾讯地图',
@@ -205,14 +211,10 @@ async function tencentReverseGeocode(lat: number, lng: number) {
           ad_info: data.result?.ad_info,
           address_reference: {
             famous_area: data.result?.address_reference?.famous_area,
-            landmark_l2: data.result?.address_reference?.landmark_l2,
+            landmark_l2: landmark,
             business_area: data.result?.address_reference?.business_area,
             town: data.result?.address_reference?.town,
-            street: data.result?.address_reference?.street,
-            crossroad: data.result?.address_reference?.crossroad,
           },
-          recommend_address: data.result?.formatted_addresses?.recommend,
-          rough_address: data.result?.formatted_addresses?.rough,
         },
       },
     };
