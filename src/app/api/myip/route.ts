@@ -59,11 +59,18 @@ function getRealIpAddress(headersList: Headers): { ip: string; headers: Record<s
 }
 
 // 获取 Cloudflare 信息
-async function getCloudflareInfo() {
+async function getCloudflareInfo(ip: string) {
   try {
+    const headers = {
+      'X-Forwarded-For': ip,
+      'X-Real-IP': ip,
+      'CF-Connecting-IP': ip,
+      'True-Client-IP': ip,
+    };
+
     const [traceResponse, metaResponse] = await Promise.all([
-      fetch('https://1.1.1.1/cdn-cgi/trace'),
-      fetch('https://speed.cloudflare.com/meta'),
+      fetch('https://1.1.1.1/cdn-cgi/trace', { headers }),
+      fetch('https://speed.cloudflare.com/meta', { headers }),
     ]);
 
     if (!traceResponse.ok || !metaResponse.ok) return null;
@@ -101,11 +108,28 @@ async function getCloudflareInfo() {
 // 获取其他数据源信息
 async function getExternalSources(ip: string) {
   const sources: Record<string, any> = {};
-  const fetchWithTimeout = async (url: string, options = {}, timeout = 5000) => {
+  const fetchWithTimeout = async (
+    url: string,
+    options: { headers?: Record<string, string> } = {},
+    timeout = 5000
+  ) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
+      // 添加 X-Forwarded-For 和其他相关头
+      const headers = {
+        'X-Forwarded-For': ip,
+        'X-Real-IP': ip,
+        'CF-Connecting-IP': ip,
+        'True-Client-IP': ip,
+        ...(options.headers || {}),
+      };
+
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
       clearTimeout(id);
       return response;
     } catch (error) {
@@ -758,7 +782,14 @@ async function getExternalSources(ip: string) {
 // 获取ping0数据
 async function getPing0Info(ip: string) {
   try {
-    const response = await axios.get(`https://ping0.cc/geo/${ip}`);
+    const headers = {
+      'X-Forwarded-For': ip,
+      'X-Real-IP': ip,
+      'CF-Connecting-IP': ip,
+      'True-Client-IP': ip,
+    };
+
+    const response = await axios.get(`https://ping0.cc/geo/${ip}`, { headers });
     const data = response.data;
     return {
       country: data.country || '',
@@ -777,9 +808,56 @@ async function getPing0Info(ip: string) {
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
+// 获取客户端真实 IP
+function getClientIP(request: NextRequest): string {
+  // Vercel 特定的请求头
+  const vercelForwardedFor = request.headers.get('x-vercel-forwarded-for');
+  const vercelIP = request.headers.get('x-real-ip');
+
+  // Cloudflare 特定的请求头
+  const cfConnectingIP = request.headers.get('cf-connecting-ip');
+
+  // 标准代理头
+  const forwardedFor = request.headers.get('x-forwarded-for');
+
+  // 按优先级获取 IP
+  if (vercelForwardedFor) {
+    // Vercel 转发的原始 IP 列表，取第一个
+    return vercelForwardedFor.split(',')[0].trim();
+  }
+
+  if (vercelIP) {
+    // Vercel 的 Edge Network 检测到的 IP
+    return vercelIP;
+  }
+
+  if (cfConnectingIP) {
+    // Cloudflare 检测到的 IP
+    return cfConnectingIP;
+  }
+
+  if (forwardedFor) {
+    // 标准代理头，取第一个 IP（最原始的客户端 IP）
+    return forwardedFor.split(',')[0].trim();
+  }
+
+  // 如果都没有，使用请求对象的 IP（Edge Runtime 提供）
+  return request.ip || '127.0.0.1';
+}
+
 export async function GET(request: NextRequest) {
+  // 获取真实 IP
+  const ip = getClientIP(request);
+
+  // 获取 Edge Runtime 的地理位置信息
+  const geo = request.geo || {};
+
+  // 获取所有请求头信息，用于调试
   const headersList = headers();
-  const { ip, headers: detectedHeaders } = getRealIpAddress(headersList);
+  const requestHeaders: Record<string, string> = {};
+  headersList.forEach((value, key) => {
+    requestHeaders[key] = value;
+  });
 
   try {
     // 获取ping0数据
@@ -787,7 +865,7 @@ export async function GET(request: NextRequest) {
 
     // 并行获取所有数据源
     const [cloudflareInfo, externalSources] = await Promise.all([
-      getCloudflareInfo(),
+      getCloudflareInfo(ip),
       getExternalSources(ip),
     ]);
 
@@ -797,13 +875,33 @@ export async function GET(request: NextRequest) {
       ...externalSources,
     };
 
-    return NextResponse.json({
+    // Edge Runtime 提供的地理位置信息
+    const edgeGeo = {
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+    };
+
+    // 构建响应
+    const response = NextResponse.json({
       ip,
-      headers: detectedHeaders, // 添加检测到的所有 IP 相关头信息
+      headers: requestHeaders, // 所有请求头，用于调试
+      edge: edgeGeo,
       ping0: ping0Data,
       sources,
       timestamp: new Date().toISOString(),
     });
+
+    // 设置 CORS 头，允许跨域访问
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', '*');
+    // 在响应头中也设置客户端 IP
+    response.headers.set('X-Client-IP', ip);
+
+    return response;
   } catch (error) {
     console.error('IP信息获取失败:', error);
     return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
