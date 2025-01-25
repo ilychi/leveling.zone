@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { countryToFlag } from '@/utils/country';
 import { formatNetworkInfo } from '@/utils/network';
+import { getAllSourcesInfo } from '@/utils/ipSources';
 
 interface IPInfo {
   ip: string;
@@ -31,47 +32,8 @@ interface SourceConfig {
   order: number;
 }
 
-interface IPSource {
-  [key: string]: any;
-}
-
-// 直接从浏览器请求 IP 信息
-async function fetchIPInfo(): Promise<IPSource> {
-  const sources = {
-    useragentinfo: 'https://ip.useragentinfo.com/json',
-    qjqq: 'https://api.qjqq.cn/api/Local',
-    identme: 'https://v4.ident.me/json',
-    ipsb: 'https://api.ip.sb/geoip',
-    ipapis: 'https://api.ipapi.is',
-    ipapico: 'https://ipapi.co/json',
-    ipapiio: 'https://ip-api.io/json',
-    // ... 其他数据源
-  };
-
-  const results = await Promise.allSettled(
-    Object.entries(sources).map(async ([name, url]) => {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        return { name, data };
-      } catch (error) {
-        console.error(`Error fetching ${name}:`, error);
-        return { name, error };
-      }
-    })
-  );
-
-  return results.reduce((acc: IPSource, result) => {
-    if (result.status === 'fulfilled' && result.value.data) {
-      acc[result.value.name] = result.value.data;
-    }
-    return acc;
-  }, {});
-}
-
 function MyIPContent() {
-  const [ipInfo, setIPInfo] = useState<IPInfo | null>(null);
+  const [ipInfo, setIpInfo] = useState<IPInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,15 +54,15 @@ function MyIPContent() {
     'zxinc': { name: '🇨🇳 ZXINC', order: 11 },
     // 国际数据源
     'apipcc': { name: '🌍 apip.cc', order: 12 },
-    'browserscan': { name: '🌐 browserscan.com', order: 13 },
-    'cloudflare': { name: '☁️ Cloudflare', order: 14 },
-    'identme': { name: '🌐 ident.me', order: 15 },
-    'ipapiio': { name: '🌐 IP-API.io', order: 16 },
-    'ipsb': { name: '🌐 IP.SB', order: 17 },
-    'ip138': { name: '🌐 ip138.xyz', order: 18 },
-    'ipapico': { name: '🌍 ipapi.co', order: 19 },
-    'ipapis': { name: '🔎 ipapi.is', order: 20 },
-    'ipquery': { name: '🌏 ipquery.io', order: 21 }
+    'cloudflare': { name: '☁️ Cloudflare', order: 13 },
+    'identme': { name: '🌐 ident.me', order: 14 },
+    'ipapiio': { name: '🌐 IP-API.io', order: 15 },
+    'ipsb': { name: '🌐 IP.SB', order: 16 },
+    'ip138': { name: '🌐 ip138.xyz', order: 17 },
+    'ipapico': { name: '🌍 ipapi.co', order: 18 },
+    'ipapis': { name: '🔎 ipapi.is', order: 19 },
+    'ipquery': { name: '🌏 ipquery.io', order: 20 },
+    'ipapicom': { name: '🌐 ip-api.com', order: 21 }
   };
 
   const getSourceName = (source: string) => {
@@ -108,19 +70,34 @@ function MyIPContent() {
   };
 
   useEffect(() => {
-    async function loadIPInfo() {
+    const fetchIPInfo = async () => {
       try {
-        const data = await fetchIPInfo();
-        setIPInfo(data as IPInfo);
-      } catch (error) {
-        console.error('Failed to fetch IP info:', error);
-        setError(error instanceof Error ? error.message : '未知错误');
+        // 从前端直接获取所有数据源信息
+        const sourcesData = await getAllSourcesInfo();
+        
+        // 发送到后端进行整合
+        const response = await fetch('/api/myip', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(sourcesData),
+        });
+
+        if (!response.ok) {
+          throw new Error('获取IP信息失败');
+        }
+
+        const data = await response.json();
+        setIpInfo(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '未知错误');
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    loadIPInfo();
+    fetchIPInfo();
   }, []);
 
   if (loading) {
