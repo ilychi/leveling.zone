@@ -3,6 +3,61 @@ import axios from 'axios';
 import { headers } from 'next/headers';
 import { formatASN } from '@/utils/network';
 
+// IP 地址验证函数
+function isValidIpAddress(ip: string): boolean {
+  // IPv4 验证
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipv4Regex.test(ip)) {
+    const parts = ip.split('.');
+    return parts.every(part => {
+      const num = parseInt(part, 10);
+      return num >= 0 && num <= 255;
+    });
+  }
+
+  // IPv6 验证
+  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$/;
+  return ipv6Regex.test(ip);
+}
+
+// 获取真实 IP 地址
+function getRealIpAddress(headersList: Headers): { ip: string; headers: Record<string, string> } {
+  const headers: Record<string, string> = {};
+  const ipHeaders = [
+    'cf-connecting-ip', // Cloudflare
+    'x-real-ip', // Nginx 代理
+    'x-forwarded-for', // 标准代理头
+    'x-client-ip', // Akamai 和其他 CDN
+    'x-forwarded', // 通用代理
+    'forwarded-for', // 通用代理
+    'x-cluster-client-ip', // GCP/AWS 负载均衡
+    'x-forwarded-host', // 反向代理
+    'true-client-ip', // Akamai
+    'fastly-client-ip', // Fastly CDN
+    'x-original-forwarded-for', // AWS CloudFront
+  ];
+
+  let detectedIp = '127.0.0.1';
+
+  for (const header of ipHeaders) {
+    const value = headersList.get(header);
+    if (value) {
+      headers[header] = value;
+      // 对于 x-forwarded-for，取第一个 IP（最原始的客户端 IP）
+      const ip = header === 'x-forwarded-for' ? value.split(',')[0].trim() : value;
+      if (isValidIpAddress(ip)) {
+        detectedIp = ip;
+        break;
+      }
+    }
+  }
+
+  return {
+    ip: detectedIp,
+    headers,
+  };
+}
+
 // 获取 Cloudflare 信息
 async function getCloudflareInfo() {
   try {
@@ -724,11 +779,7 @@ export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   const headersList = headers();
-  const ip = (
-    headersList.get('x-real-ip') ||
-    headersList.get('x-forwarded-for')?.split(',')[0] ||
-    '127.0.0.1'
-  ).trim();
+  const { ip, headers: detectedHeaders } = getRealIpAddress(headersList);
 
   try {
     // 获取ping0数据
@@ -748,6 +799,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ip,
+      headers: detectedHeaders, // 添加检测到的所有 IP 相关头信息
       ping0: ping0Data,
       sources,
       timestamp: new Date().toISOString(),
