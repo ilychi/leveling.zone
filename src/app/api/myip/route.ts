@@ -761,7 +761,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sources, clientIp } = await request.json();
+    const { sources } = await request.json();
+    const headersList = headers();
+
+    // 从请求头获取真实 IP
+    const clientIp = (
+      headersList.get('x-real-ip') ||
+      headersList.get('x-forwarded-for')?.split(',')[0] ||
+      request.ip ||
+      '-'
+    ).trim();
 
     // 获取 Edge 位置信息
     const edge = {
@@ -772,9 +781,9 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
-    // 使用前端传来的 IP 作为主要 IP
+    // 使用请求头中的真实 IP
     const response = {
-      ip: clientIp || sources?.ipapico?.ip || sources?.ipify?.ip || sources?.ipapicom?.ip || '-',
+      ip: clientIp,
       edge,
       sources,
       timestamp: new Date().toISOString(),

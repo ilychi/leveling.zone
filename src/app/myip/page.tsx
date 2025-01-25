@@ -83,11 +83,7 @@ function MyIPContent() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            sources: sourcesData,
-            clientIp: await fetch('https://api.ipify.org?format=json')
-              .then(res => res.json())
-              .then(data => data.ip)
-              .catch(() => null)
+            sources: sourcesData
           }),
         });
 

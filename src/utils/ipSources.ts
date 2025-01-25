@@ -634,7 +634,7 @@ export async function getIpQueryInfo() {
 // 修改 ip-api.com 数据源
 export async function getIpApiComInfo() {
   try {
-    const response = await fetchWithTimeout('https://ip-api.com/json/?fields=24903679');
+    const response = await fetchWithTimeout('http://ip-api.com/json/?fields=24903679');
     if (!response.ok) return null;
 
     const data = await response.json();
