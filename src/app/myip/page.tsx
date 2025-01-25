@@ -39,12 +39,30 @@ function MyIPContent() {
 
   // 数据源配置（包含显示名称和排序）
   const sourceConfig: Record<string, SourceConfig> = {
-    // Edge 信息
-    'edge': { name: '🌐 Edge Network', order: 0 },
+    // 中国数据源
+    'qifu': { name: '🇨🇳 百度企服', order: 0 },
+    'amap': { name: '🇨🇳 高德地图', order: 1 },
+    'ipcn': { name: '🇨🇳 IP.CN', order: 2 },
+    'ipip': { name: '🇨🇳 IPIP.NET', order: 3 },
+    'qjqq': { name: '🇨🇳 青桔API', order: 4 },
+    'pconline': { name: '🇨🇳 太平洋IP', order: 5 },
+    'qqnews': { name: '🇨🇳 腾讯新闻', order: 6 },
+    'useragentinfo': { name: '🇨🇳 UA.info', order: 7 },
+    'vore': { name: '🇨🇳 VORE-API', order: 8 },
+    'upyun': { name: '🇨🇳 又拍云', order: 9 },
+    'zhale': { name: '🇨🇳 ZHALE.ME', order: 10 },
+    'zxinc': { name: '🇨🇳 ZXINC', order: 11 },
     // 国际数据源
-    'ipapicom': { name: '🌐 ip-api.com', order: 1 },
-    'ipapis': { name: '🔎 ipapi.is', order: 2 },
-    'ipapico': { name: '🌍 ipapi.co', order: 3 },
+    'apipcc': { name: '🌍 apip.cc', order: 12 },
+    'cloudflare': { name: '☁️ Cloudflare', order: 13 },
+    'identme': { name: '🌐 ident.me', order: 14 },
+    'ipapiio': { name: '🌐 IP-API.io', order: 15 },
+    'ipsb': { name: '🌐 IP.SB', order: 16 },
+    'ip138': { name: '🌐 ip138.xyz', order: 17 },
+    'ipapico': { name: '🌍 ipapi.co', order: 18 },
+    'ipapis': { name: '🔎 ipapi.is', order: 19 },
+    'ipquery': { name: '🌏 ipquery.io', order: 20 },
+    'ipapicom': { name: '🌐 ip-api.com', order: 21 }
   };
 
   const getSourceName = (source: string) => {
@@ -54,12 +72,22 @@ function MyIPContent() {
   useEffect(() => {
     const fetchIPInfo = async () => {
       try {
-        // 直接从后端获取所有数据源信息
+        // 从前端直接获取所有数据源信息
+        const sourcesData = await getAllSourcesInfo();
+        
+        // 发送到后端进行整合
         const response = await fetch('/api/myip', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            sources: sourcesData,
+            clientIp: await fetch('https://api.ipify.org?format=json')
+              .then(res => res.json())
+              .then(data => data.ip)
+              .catch(() => null)
+          }),
         });
 
         if (!response.ok) {

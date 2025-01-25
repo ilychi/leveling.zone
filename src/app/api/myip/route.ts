@@ -761,13 +761,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 获取真实 IP
-    const ip = (
-      request.headers.get('x-real-ip') ||
-      request.headers.get('x-forwarded-for')?.split(',')[0] ||
-      request.ip ||
-      '127.0.0.1'
-    ).trim();
+    const { sources, clientIp } = await request.json();
+
+    const ip =
+      clientIp ||
+      (
+        request.headers.get('x-real-ip') ||
+        request.headers.get('x-forwarded-for')?.split(',')[0] ||
+        request.ip ||
+        '127.0.0.1'
+      ).trim();
 
     // 获取 Edge 位置信息
     const edge = {
@@ -776,19 +779,6 @@ export async function POST(request: NextRequest) {
       city: request.geo?.city || '-',
       latitude: request.geo?.latitude || '-',
       longitude: request.geo?.longitude || '-',
-    };
-
-    // 并行获取所有数据源
-    const [ipApiComData, ipapiIsData, ipapiCoData] = await Promise.all([
-      getIpApiComInfo(ip),
-      getIpapiIsInfo(ip),
-      getIpapiCoInfo(ip),
-    ]);
-
-    const sources = {
-      ...(ipApiComData && { ipapicom: ipApiComData }),
-      ...(ipapiIsData && { ipapis: ipapiIsData }),
-      ...(ipapiCoData && { ipapico: ipapiCoData }),
     };
 
     const response = {
@@ -824,122 +814,4 @@ export async function OPTIONS(request: NextRequest) {
       },
     }
   );
-}
-
-// 获取 ip-api.com 数据源
-async function getIpApiComInfo(ip: string) {
-  try {
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=24903679`, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
-      },
-    });
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (data.status !== 'success') return null;
-
-    return {
-      ip: data.query,
-      location: {
-        country: data.country,
-        country_code: data.countryCode,
-        region: data.regionName,
-        city: data.city,
-        district: data.district,
-        timezone: data.timezone,
-        latitude: data.lat,
-        longitude: data.lon,
-      },
-      network: {
-        asn: `AS${data.as.split(' ')[0].substring(2)}`,
-        organization: data.org,
-        isp: data.isp,
-      },
-      security: {
-        proxy: data.proxy,
-        mobile: data.mobile,
-        hosting: data.hosting,
-      },
-    };
-  } catch (error) {
-    console.error('ip-api.com查询失败:', error);
-    return null;
-  }
-}
-
-// 获取 ipapi.is 数据源
-async function getIpapiIsInfo(ip: string) {
-  try {
-    const response = await fetch(`https://api.ipapi.is/?q=${ip}`, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
-      },
-    });
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return {
-      ip: data.ip,
-      location: {
-        country: data.location.country,
-        country_code: data.location.country_code,
-        region: data.location.state,
-        city: data.location.city,
-        timezone: data.location.timezone,
-        latitude: data.location.latitude,
-        longitude: data.location.longitude,
-      },
-      network: {
-        asn: formatASN(data.asn.asn),
-        organization: data.asn.org,
-        isp: data.company.name,
-      },
-      security: {
-        is_datacenter: data.is_datacenter,
-        is_vpn: data.is_vpn,
-        is_proxy: data.is_proxy,
-        is_tor: data.is_tor,
-      },
-    };
-  } catch (error) {
-    console.error('ipapi.is查询失败:', error);
-    return null;
-  }
-}
-
-// 获取 ipapi.co 数据源
-async function getIpapiCoInfo(ip: string) {
-  try {
-    const response = await fetch(`https://ipapi.co/${ip}/json/`, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)',
-      },
-    });
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return {
-      ip: data.ip,
-      location: {
-        country: data.country_name,
-        country_code: data.country_code,
-        region: data.region,
-        city: data.city,
-        timezone: data.timezone,
-        latitude: data.latitude,
-        longitude: data.longitude,
-      },
-      network: {
-        asn: formatASN(data.asn),
-        organization: data.org,
-      },
-    };
-  } catch (error) {
-    console.error('ipapi.co查询失败:', error);
-    return null;
-  }
 }
