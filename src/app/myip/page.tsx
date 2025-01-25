@@ -62,7 +62,8 @@ function MyIPContent() {
     'ipapico': { name: '🌍 ipapi.co', order: 18 },
     'ipapis': { name: '🔎 ipapi.is', order: 19 },
     'ipquery': { name: '🌏 ipquery.io', order: 20 },
-    'ipapicom': { name: '🌐 ip-api.com', order: 21 }
+    'ipapicom': { name: '🌐 ip-api.com', order: 21 },
+    'ipify': { name: '🌐 ipify.org', order: 22 }
   };
 
   const getSourceName = (source: string) => {

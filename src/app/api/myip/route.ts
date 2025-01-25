@@ -763,15 +763,6 @@ export async function POST(request: NextRequest) {
   try {
     const { sources, clientIp } = await request.json();
 
-    const ip =
-      clientIp ||
-      (
-        request.headers.get('x-real-ip') ||
-        request.headers.get('x-forwarded-for')?.split(',')[0] ||
-        request.ip ||
-        '127.0.0.1'
-      ).trim();
-
     // 获取 Edge 位置信息
     const edge = {
       country: request.geo?.country || '-',
@@ -781,8 +772,9 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
+    // 使用前端传来的 IP 作为主要 IP
     const response = {
-      ip,
+      ip: clientIp || sources?.ipapico?.ip || sources?.ipify?.ip || sources?.ipapicom?.ip || '-',
       edge,
       sources,
       timestamp: new Date().toISOString(),
