@@ -31,8 +31,47 @@ interface SourceConfig {
   order: number;
 }
 
+interface IPSource {
+  [key: string]: any;
+}
+
+// 直接从浏览器请求 IP 信息
+async function fetchIPInfo(): Promise<IPSource> {
+  const sources = {
+    useragentinfo: 'https://ip.useragentinfo.com/json',
+    qjqq: 'https://api.qjqq.cn/api/Local',
+    identme: 'https://v4.ident.me/json',
+    ipsb: 'https://api.ip.sb/geoip',
+    ipapis: 'https://api.ipapi.is',
+    ipapico: 'https://ipapi.co/json',
+    ipapiio: 'https://ip-api.io/json',
+    // ... 其他数据源
+  };
+
+  const results = await Promise.allSettled(
+    Object.entries(sources).map(async ([name, url]) => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return { name, data };
+      } catch (error) {
+        console.error(`Error fetching ${name}:`, error);
+        return { name, error };
+      }
+    })
+  );
+
+  return results.reduce((acc: IPSource, result) => {
+    if (result.status === 'fulfilled' && result.value.data) {
+      acc[result.value.name] = result.value.data;
+    }
+    return acc;
+  }, {});
+}
+
 function MyIPContent() {
-  const [ipInfo, setIpInfo] = useState<IPInfo | null>(null);
+  const [ipInfo, setIPInfo] = useState<IPInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,22 +108,19 @@ function MyIPContent() {
   };
 
   useEffect(() => {
-    const fetchIPInfo = async () => {
+    async function loadIPInfo() {
       try {
-        const response = await fetch('/api/myip');
-        if (!response.ok) {
-          throw new Error('获取IP信息失败');
-        }
-        const data = await response.json();
-        setIpInfo(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '未知错误');
+        const data = await fetchIPInfo();
+        setIPInfo(data as IPInfo);
+      } catch (error) {
+        console.error('Failed to fetch IP info:', error);
+        setError(error instanceof Error ? error.message : '未知错误');
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchIPInfo();
+    loadIPInfo();
   }, []);
 
   if (loading) {

@@ -852,13 +852,6 @@ export async function GET(request: NextRequest) {
   // 获取 Edge Runtime 的地理位置信息
   const geo = request.geo || {};
 
-  // 获取所有请求头信息，用于调试
-  const headersList = headers();
-  const requestHeaders: Record<string, string> = {};
-  headersList.forEach((value, key) => {
-    requestHeaders[key] = value;
-  });
-
   try {
     // 获取ping0数据
     const ping0Data = await getPing0Info(ip);
@@ -869,41 +862,103 @@ export async function GET(request: NextRequest) {
       getExternalSources(ip),
     ]);
 
-    // 合并所有数据源
-    const sources = {
-      ...(cloudflareInfo && { cloudflare: cloudflareInfo }),
-      ...externalSources,
-    };
+    // 格式化数据源输出
+    const formattedSources: Record<string, any> = {};
 
-    // Edge Runtime 提供的地理位置信息
-    const edgeGeo = {
-      country: geo.country,
-      region: geo.region,
-      city: geo.city,
-      latitude: geo.latitude,
-      longitude: geo.longitude,
-    };
+    // 添加 Cloudflare 信息
+    if (cloudflareInfo) {
+      formattedSources.cloudflare = {
+        ip: cloudflareInfo.ip,
+        location: {
+          country: cloudflareInfo.location.country,
+          region: cloudflareInfo.location.region,
+          city: cloudflareInfo.location.city,
+          timezone: cloudflareInfo.location.timezone,
+        },
+        network: {
+          asn: cloudflareInfo.network.asn,
+          organization: cloudflareInfo.network.organization,
+        },
+      };
+    }
 
-    // 构建响应
-    const response = NextResponse.json({
-      ip,
-      headers: requestHeaders, // 所有请求头，用于调试
-      edge: edgeGeo,
-      ping0: ping0Data,
-      sources,
-      timestamp: new Date().toISOString(),
+    // 添加其他数据源
+    Object.entries(externalSources).forEach(([source, data]) => {
+      formattedSources[source] = {
+        ip: data.ip || '-',
+        location: {
+          country: data.location?.country || '-',
+          region: data.location?.region || data.location?.province || '-',
+          city: data.location?.city || '-',
+          district: data.location?.district || '-',
+          timezone: data.location?.timezone,
+          latitude: data.location?.latitude,
+          longitude: data.location?.longitude,
+        },
+        network: {
+          asn: data.network?.asn || '-',
+          organization: data.network?.organization || data.network?.isp || '-',
+          type: data.network?.type || '-',
+        },
+      };
     });
 
-    // 设置 CORS 头，允许跨域访问
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', '*');
-    // 在响应头中也设置客户端 IP
-    response.headers.set('X-Client-IP', ip);
+    // 构建响应
+    const response = NextResponse.json(
+      {
+        ip,
+        edge: {
+          country: geo.country,
+          region: geo.region,
+          city: geo.city,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+        },
+        ping0: ping0Data,
+        sources: formattedSources,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'X-Client-IP': ip,
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
+    );
 
     return response;
   } catch (error) {
     console.error('IP信息获取失败:', error);
-    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: '获取IP信息失败',
+        message: error instanceof Error ? error.message : '未知错误',
+      },
+      {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
+    );
   }
+}
+
+// 添加 OPTIONS 请求处理，支持 CORS 预检请求
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
 }
