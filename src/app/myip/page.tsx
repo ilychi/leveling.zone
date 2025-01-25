@@ -72,16 +72,12 @@ function MyIPContent() {
   useEffect(() => {
     const fetchIPInfo = async () => {
       try {
-        // 从前端直接获取所有数据源信息
-        const sourcesData = await getAllSourcesInfo();
-        
-        // 发送到后端进行整合
+        // 直接从后端获取所有数据源信息
         const response = await fetch('/api/myip', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(sourcesData),
         });
 
         if (!response.ok) {

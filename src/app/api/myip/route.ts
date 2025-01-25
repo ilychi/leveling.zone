@@ -2,75 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { headers } from 'next/headers';
 import { formatASN } from '@/utils/network';
-
-// IP 地址验证函数
-function isValidIpAddress(ip: string): boolean {
-  // IPv4 验证
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (ipv4Regex.test(ip)) {
-    const parts = ip.split('.');
-    return parts.every(part => {
-      const num = parseInt(part, 10);
-      return num >= 0 && num <= 255;
-    });
-  }
-
-  // IPv6 验证
-  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$/;
-  return ipv6Regex.test(ip);
-}
-
-// 获取真实 IP 地址
-function getRealIpAddress(headersList: Headers): { ip: string; headers: Record<string, string> } {
-  const headers: Record<string, string> = {};
-  const ipHeaders = [
-    'cf-connecting-ip', // Cloudflare
-    'x-real-ip', // Nginx 代理
-    'x-forwarded-for', // 标准代理头
-    'x-client-ip', // Akamai 和其他 CDN
-    'x-forwarded', // 通用代理
-    'forwarded-for', // 通用代理
-    'x-cluster-client-ip', // GCP/AWS 负载均衡
-    'x-forwarded-host', // 反向代理
-    'true-client-ip', // Akamai
-    'fastly-client-ip', // Fastly CDN
-    'x-original-forwarded-for', // AWS CloudFront
-  ];
-
-  let detectedIp = '127.0.0.1';
-
-  for (const header of ipHeaders) {
-    const value = headersList.get(header);
-    if (value) {
-      headers[header] = value;
-      // 对于 x-forwarded-for，取第一个 IP（最原始的客户端 IP）
-      const ip = header === 'x-forwarded-for' ? value.split(',')[0].trim() : value;
-      if (isValidIpAddress(ip)) {
-        detectedIp = ip;
-        break;
-      }
-    }
-  }
-
-  return {
-    ip: detectedIp,
-    headers,
-  };
-}
+import { getAllSourcesInfo } from '@/utils/ipSources';
 
 // 获取 Cloudflare 信息
-async function getCloudflareInfo(ip: string) {
+async function getCloudflareInfo() {
   try {
-    const headers = {
-      'X-Forwarded-For': ip,
-      'X-Real-IP': ip,
-      'CF-Connecting-IP': ip,
-      'True-Client-IP': ip,
-    };
-
     const [traceResponse, metaResponse] = await Promise.all([
-      fetch('https://1.1.1.1/cdn-cgi/trace', { headers }),
-      fetch('https://speed.cloudflare.com/meta', { headers }),
+      fetch('https://1.1.1.1/cdn-cgi/trace'),
+      fetch('https://speed.cloudflare.com/meta'),
     ]);
 
     if (!traceResponse.ok || !metaResponse.ok) return null;
@@ -108,28 +47,11 @@ async function getCloudflareInfo(ip: string) {
 // 获取其他数据源信息
 async function getExternalSources(ip: string) {
   const sources: Record<string, any> = {};
-  const fetchWithTimeout = async (
-    url: string,
-    options: { headers?: Record<string, string> } = {},
-    timeout = 5000
-  ) => {
+  const fetchWithTimeout = async (url: string, options = {}, timeout = 5000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
-      // 添加 X-Forwarded-For 和其他相关头
-      const headers = {
-        'X-Forwarded-For': ip,
-        'X-Real-IP': ip,
-        'CF-Connecting-IP': ip,
-        'True-Client-IP': ip,
-        ...(options.headers || {}),
-      };
-
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        signal: controller.signal,
-      });
+      const response = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(id);
       return response;
     } catch (error) {
@@ -782,14 +704,7 @@ async function getExternalSources(ip: string) {
 // 获取ping0数据
 async function getPing0Info(ip: string) {
   try {
-    const headers = {
-      'X-Forwarded-For': ip,
-      'X-Real-IP': ip,
-      'CF-Connecting-IP': ip,
-      'True-Client-IP': ip,
-    };
-
-    const response = await axios.get(`https://ping0.cc/geo/${ip}`, { headers });
+    const response = await axios.get(`https://ping0.cc/geo/${ip}`);
     const data = response.data;
     return {
       country: data.country || '',
@@ -808,49 +723,13 @@ async function getPing0Info(ip: string) {
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
-// 获取客户端真实 IP
-function getClientIP(request: NextRequest): string {
-  // Vercel 特定的请求头
-  const vercelForwardedFor = request.headers.get('x-vercel-forwarded-for');
-  const vercelIP = request.headers.get('x-real-ip');
-
-  // Cloudflare 特定的请求头
-  const cfConnectingIP = request.headers.get('cf-connecting-ip');
-
-  // 标准代理头
-  const forwardedFor = request.headers.get('x-forwarded-for');
-
-  // 按优先级获取 IP
-  if (vercelForwardedFor) {
-    // Vercel 转发的原始 IP 列表，取第一个
-    return vercelForwardedFor.split(',')[0].trim();
-  }
-
-  if (vercelIP) {
-    // Vercel 的 Edge Network 检测到的 IP
-    return vercelIP;
-  }
-
-  if (cfConnectingIP) {
-    // Cloudflare 检测到的 IP
-    return cfConnectingIP;
-  }
-
-  if (forwardedFor) {
-    // 标准代理头，取第一个 IP（最原始的客户端 IP）
-    return forwardedFor.split(',')[0].trim();
-  }
-
-  // 如果都没有，使用请求对象的 IP（Edge Runtime 提供）
-  return request.ip || '127.0.0.1';
-}
-
 export async function GET(request: NextRequest) {
-  // 获取真实 IP
-  const ip = getClientIP(request);
-
-  // 获取 Edge Runtime 的地理位置信息
-  const geo = request.geo || {};
+  const headersList = headers();
+  const ip = (
+    headersList.get('x-real-ip') ||
+    headersList.get('x-forwarded-for')?.split(',')[0] ||
+    '127.0.0.1'
+  ).trim();
 
   try {
     // 获取ping0数据
@@ -858,107 +737,81 @@ export async function GET(request: NextRequest) {
 
     // 并行获取所有数据源
     const [cloudflareInfo, externalSources] = await Promise.all([
-      getCloudflareInfo(ip),
+      getCloudflareInfo(),
       getExternalSources(ip),
     ]);
 
-    // 格式化数据源输出
-    const formattedSources: Record<string, any> = {};
+    // 合并所有数据源
+    const sources = {
+      ...(cloudflareInfo && { cloudflare: cloudflareInfo }),
+      ...externalSources,
+    };
 
-    // 添加 Cloudflare 信息
-    if (cloudflareInfo) {
-      formattedSources.cloudflare = {
-        ip: cloudflareInfo.ip,
-        location: {
-          country: cloudflareInfo.location.country,
-          region: cloudflareInfo.location.region,
-          city: cloudflareInfo.location.city,
-          timezone: cloudflareInfo.location.timezone,
-        },
-        network: {
-          asn: cloudflareInfo.network.asn,
-          organization: cloudflareInfo.network.organization,
-        },
-      };
-    }
-
-    // 添加其他数据源
-    Object.entries(externalSources).forEach(([source, data]) => {
-      formattedSources[source] = {
-        ip: data.ip || '-',
-        location: {
-          country: data.location?.country || '-',
-          region: data.location?.region || data.location?.province || '-',
-          city: data.location?.city || '-',
-          district: data.location?.district || '-',
-          timezone: data.location?.timezone,
-          latitude: data.location?.latitude,
-          longitude: data.location?.longitude,
-        },
-        network: {
-          asn: data.network?.asn || '-',
-          organization: data.network?.organization || data.network?.isp || '-',
-          type: data.network?.type || '-',
-        },
-      };
+    return NextResponse.json({
+      ip,
+      ping0: ping0Data,
+      sources,
+      timestamp: new Date().toISOString(),
     });
-
-    // 构建响应
-    const response = NextResponse.json(
-      {
-        ip,
-        edge: {
-          country: geo.country,
-          region: geo.region,
-          city: geo.city,
-          latitude: geo.latitude,
-          longitude: geo.longitude,
-        },
-        ping0: ping0Data,
-        sources: formattedSources,
-        timestamp: new Date().toISOString(),
-      },
-      {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': '*',
-          'X-Client-IP': ip,
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      }
-    );
-
-    return response;
   } catch (error) {
     console.error('IP信息获取失败:', error);
-    return NextResponse.json(
-      {
-        error: '获取IP信息失败',
-        message: error instanceof Error ? error.message : '未知错误',
-      },
-      {
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      }
-    );
+    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
   }
 }
 
-// 添加 OPTIONS 请求处理，支持 CORS 预检请求
+export async function POST(request: NextRequest) {
+  try {
+    const headersList = headers();
+    const ip = (
+      request.headers.get('x-real-ip') ||
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.ip ||
+      '127.0.0.1'
+    ).trim();
+
+    // 获取所有数据源信息
+    const sources = await getAllSourcesInfo();
+
+    // 获取 Edge 位置信息
+    const edge = {
+      country: request.geo?.country || '-',
+      region: request.geo?.region || '-',
+      city: request.geo?.city || '-',
+      latitude: request.geo?.latitude || '-',
+      longitude: request.geo?.longitude || '-',
+    };
+
+    const response = {
+      ip,
+      edge,
+      sources,
+      timestamp: new Date().toISOString(),
+    };
+
+    return NextResponse.json(response, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  } catch (error) {
+    console.error('处理请求失败:', error);
+    return NextResponse.json({ error: '处理请求失败' }, { status: 500 });
+  }
+}
+
+// OPTIONS 请求处理 CORS
 export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': '*',
-      'Access-Control-Max-Age': '86400',
-    },
-  });
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    }
+  );
 }
