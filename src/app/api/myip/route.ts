@@ -4,6 +4,20 @@ import { headers } from 'next/headers';
 import { formatASN } from '@/utils/network';
 import { getAllSourcesInfo } from '@/utils/ipSources';
 
+// 通用的超时请求函数
+const fetchWithTimeout = async (url: string, options = {}, timeout = 5000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 // 获取 Cloudflare 信息
 async function getCloudflareInfo() {
   try {
@@ -47,18 +61,6 @@ async function getCloudflareInfo() {
 // 获取其他数据源信息
 async function getExternalSources(ip: string) {
   const sources: Record<string, any> = {};
-  const fetchWithTimeout = async (url: string, options = {}, timeout = 5000) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(id);
-      return response;
-    } catch (error) {
-      clearTimeout(id);
-      throw error;
-    }
-  };
 
   try {
     // useragentinfo 数据源
@@ -723,7 +725,7 @@ async function getPing0Info(ip: string) {
 // 获取 ip-api.com 数据
 async function getIpApiComInfo(ip: string) {
   try {
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=24903679`);
+    const response = await fetchWithTimeout(`http://ip-api.com/json/${ip}?fields=24903679`);
     if (!response.ok) return null;
 
     const data = await response.json();
@@ -758,59 +760,157 @@ async function getIpApiComInfo(ip: string) {
   }
 }
 
+// 获取 ipapi.co 信息
+async function getIpapiCoInfo() {
+  try {
+    const response = await fetchWithTimeout('https://ipapi.co/json/');
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return {
+      ip: data.ip,
+      location: {
+        country: data.country_name,
+        country_code: data.country_code,
+        region: data.region,
+        city: data.city,
+        timezone: data.timezone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+      },
+      network: {
+        asn: data.asn,
+        organization: data.org,
+      },
+    };
+  } catch (error) {
+    console.error('ipapi.co查询失败:', error);
+    return null;
+  }
+}
+
+// 获取 ipapi.is 信息
+async function getIpapiIsInfo() {
+  try {
+    const response = await fetchWithTimeout('https://api.ipapi.is');
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return {
+      ip: data.ip,
+      location: {
+        country: data.location.country,
+        country_code: data.location.country_code,
+        region: data.location.state,
+        city: data.location.city,
+        timezone: data.location.timezone,
+        latitude: data.location.latitude,
+        longitude: data.location.longitude,
+      },
+      network: {
+        asn: data.asn.asn,
+        organization: data.asn.org,
+        isp: data.company.name,
+      },
+      security: {
+        is_datacenter: data.is_datacenter,
+        is_vpn: data.is_vpn,
+        is_proxy: data.is_proxy,
+        is_tor: data.is_tor,
+      },
+    };
+  } catch (error) {
+    console.error('ipapi.is查询失败:', error);
+    return null;
+  }
+}
+
+// 从请求中获取真实IP
+function getClientIp(request: NextRequest): string {
+  const headersList = headers();
+
+  // 按优先级尝试不同的请求头
+  const possibleHeaders = [
+    headersList.get('cf-connecting-ip'), // Cloudflare
+    headersList.get('x-real-ip'), // Nginx
+    headersList.get('x-client-ip'), // Apache
+    headersList.get('x-forwarded-for'), // 标准代理头
+    headersList.get('forwarded-for'),
+    headersList.get('x-appengine-user-ip'), // Google App Engine
+    headersList.get('fastly-client-ip'), // Fastly
+    headersList.get('true-client-ip'), // Akamai and Cloudflare
+    request.ip, // Next.js 内置
+    request.headers.get('x-forwarded-for'), // 备用方式
+  ];
+
+  // 处理 x-forwarded-for 链
+  for (const header of possibleHeaders) {
+    if (header) {
+      // 如果是逗号分隔的列表，取第一个地址（最初的客户端IP）
+      const ip = header.split(',')[0].trim();
+      if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+        return ip;
+      }
+    }
+  }
+
+  return '127.0.0.1';
+}
+
+// CORS 配置
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers':
+    'Content-Type, X-Real-IP, X-Forwarded-For, CF-Connecting-IP, True-Client-IP',
+  'Access-Control-Max-Age': '86400', // 24 hours
+};
+
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
-  const headersList = headers();
-  const ip = (
-    headersList.get('x-real-ip') ||
-    headersList.get('x-forwarded-for')?.split(',')[0] ||
-    '127.0.0.1'
-  ).trim();
+  // 获取客户端真实IP
+  const clientIp = getClientIp(request);
 
   try {
-    // 获取ping0数据
-    const ping0Data = await getPing0Info(ip);
+    // 获取 ip-api.com 数据
+    const ipApiResponse = await fetch(`http://ip-api.com/json/${clientIp}?fields=24903679`);
+    let ipApiData = null;
+    if (ipApiResponse.ok) {
+      const data = await ipApiResponse.json();
+      if (data.status === 'success') {
+        ipApiData = {
+          ip: data.query,
+          location: {
+            continent: data.continent,
+            continentCode: data.continentCode,
+            country: data.country,
+            country_code: data.countryCode,
+            region: data.region,
+            regionName: data.regionName,
+            city: data.city,
+            district: data.district,
+            zip: data.zip,
+            timezone: data.timezone,
+            latitude: data.lat,
+            longitude: data.lon,
+          },
+          network: {
+            asn: `AS${data.as.split(' ')[0].substring(2)}`,
+            organization: data.org,
+            isp: data.isp,
+          },
+          security: {
+            proxy: data.proxy,
+            mobile: data.mobile,
+            hosting: data.hosting,
+          },
+        };
+      }
+    }
 
-    // 并行获取所有数据源
-    const [cloudflareInfo, externalSources] = await Promise.all([
-      getCloudflareInfo(),
-      getExternalSources(ip),
-    ]);
-
-    // 合并所有数据源
-    const sources = {
-      ...(cloudflareInfo && { cloudflare: cloudflareInfo }),
-      ...externalSources,
-    };
-
-    return NextResponse.json({
-      ip,
-      ping0: ping0Data,
-      sources,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('IP信息获取失败:', error);
-    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const { sources, clientIp } = await request.json();
-
-    const ip =
-      clientIp ||
-      (
-        request.headers.get('x-real-ip') ||
-        request.headers.get('x-forwarded-for')?.split(',')[0] ||
-        request.ip ||
-        '127.0.0.1'
-      ).trim();
-
-    // 获取 Edge 位置信息
+    // 获取 Edge 运行时的地理位置信息
     const edge = {
       country: request.geo?.country || '-',
       region: request.geo?.region || '-',
@@ -819,43 +919,103 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
-    // 从服务器端获取 ip-api.com 数据
-    const ipApiComData = await getIpApiComInfo(ip);
-    if (ipApiComData) {
-      sources.ipapicom = ipApiComData;
-    }
-
+    // 构建响应数据
     const response = {
-      ip,
+      ip: clientIp,
       edge,
-      sources,
+      ipapi: ipApiData,
+      headers: {
+        'x-real-ip': headers().get('x-real-ip'),
+        'x-forwarded-for': headers().get('x-forwarded-for'),
+        'cf-connecting-ip': headers().get('cf-connecting-ip'),
+        'true-client-ip': headers().get('true-client-ip'),
+      },
       timestamp: new Date().toISOString(),
     };
 
     return NextResponse.json(response, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: corsHeaders,
     });
   } catch (error) {
-    console.error('处理请求失败:', error);
-    return NextResponse.json({ error: '处理请求失败' }, { status: 500 });
+    console.error('IP信息获取失败:', error);
+    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500, headers: corsHeaders });
   }
 }
 
-// OPTIONS 请求处理 CORS
-export async function OPTIONS(request: NextRequest) {
-  return NextResponse.json(
-    {},
-    {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+export async function POST(request: NextRequest) {
+  try {
+    const { clientIp: providedIp } = await request.json();
+    const clientIp = providedIp || getClientIp(request);
+
+    // 获取 ip-api.com 数据
+    const ipApiResponse = await fetch(`http://ip-api.com/json/${clientIp}?fields=24903679`);
+    let ipApiData = null;
+    if (ipApiResponse.ok) {
+      const data = await ipApiResponse.json();
+      if (data.status === 'success') {
+        ipApiData = {
+          ip: data.query,
+          location: {
+            continent: data.continent,
+            continentCode: data.continentCode,
+            country: data.country,
+            country_code: data.countryCode,
+            region: data.region,
+            regionName: data.regionName,
+            city: data.city,
+            district: data.district,
+            zip: data.zip,
+            timezone: data.timezone,
+            latitude: data.lat,
+            longitude: data.lon,
+          },
+          network: {
+            asn: `AS${data.as.split(' ')[0].substring(2)}`,
+            organization: data.org,
+            isp: data.isp,
+          },
+          security: {
+            proxy: data.proxy,
+            mobile: data.mobile,
+            hosting: data.hosting,
+          },
+        };
+      }
     }
-  );
+
+    // 获取 Edge 运行时的地理位置信息
+    const edge = {
+      country: request.geo?.country || '-',
+      region: request.geo?.region || '-',
+      city: request.geo?.city || '-',
+      latitude: request.geo?.latitude || '-',
+      longitude: request.geo?.longitude || '-',
+    };
+
+    const response = {
+      ip: clientIp,
+      edge,
+      ipapi: ipApiData,
+      headers: {
+        'x-real-ip': headers().get('x-real-ip'),
+        'x-forwarded-for': headers().get('x-forwarded-for'),
+        'cf-connecting-ip': headers().get('cf-connecting-ip'),
+        'true-client-ip': headers().get('true-client-ip'),
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    return NextResponse.json(response, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  } catch (error) {
+    console.error('处理请求失败:', error);
+    return NextResponse.json({ error: '处理请求失败' }, { status: 500, headers: corsHeaders });
+  }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return NextResponse.json({}, { headers: corsHeaders });
 }
