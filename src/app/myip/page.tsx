@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { countryToFlag } from '@/utils/country';
 import { formatNetworkInfo } from '@/utils/network';
+import { getAllSourcesInfo } from '@/utils/ipSources';
 
 interface IPInfo {
   ip: string;
@@ -71,8 +72,24 @@ function MyIPContent() {
   useEffect(() => {
     const fetchIPInfo = async () => {
       try {
-        // 直接从后端获取所有数据源信息
-        const response = await fetch('/api/myip');
+        // 从前端直接获取所有数据源信息
+        const sourcesData = await getAllSourcesInfo();
+         
+        // 发送到后端进行整合
+        const response = await fetch('/api/myip', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sources: sourcesData,
+            clientIp: await fetch('https://api.ipify.org?format=json')
+              .then(res => res.json())
+              .then(data => data.ip)
+              .catch(() => null)
+          }),
+        });
+
         if (!response.ok) {
           throw new Error('获取IP信息失败');
         }
