@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { countryToFlag } from '@/utils/country';
 import { formatNetworkInfo } from '@/utils/network';
-import { getAllSourcesInfo } from '@/utils/ipSources';
 
 interface IPInfo {
   ip: string;
@@ -62,8 +61,7 @@ function MyIPContent() {
     'ipapico': { name: '🌍 ipapi.co', order: 18 },
     'ipapis': { name: '🔎 ipapi.is', order: 19 },
     'ipquery': { name: '🌏 ipquery.io', order: 20 },
-    'ipapicom': { name: '🌐 ip-api.com', order: 21 },
-    'ipify': { name: '🌐 ipify.org', order: 22 }
+    'ipapicom': { name: '🌐 ip-api.com', order: 21 }
   };
 
   const getSourceName = (source: string) => {
@@ -73,24 +71,8 @@ function MyIPContent() {
   useEffect(() => {
     const fetchIPInfo = async () => {
       try {
-        // 从前端直接获取所有数据源信息
-        const sourcesData = await getAllSourcesInfo();
-        
-        // 发送到后端进行整合
-        const response = await fetch('/api/myip', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sources: sourcesData,
-            clientIp: await fetch('https://api.ipify.org?format=json')
-              .then(res => res.json())
-              .then(data => data.ip)
-              .catch(() => null)
-          }),
-        });
-
+        // 直接从后端获取所有数据源信息
+        const response = await fetch('/api/myip');
         if (!response.ok) {
           throw new Error('获取IP信息失败');
         }
