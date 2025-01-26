@@ -1,11 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
+// 从请求中获取客户端 IP
+function getClientIP(request: NextRequest): string {
+  // 1. 从请求头获取
+  const headersList = headers();
+  const forwardedFor = headersList.get('x-forwarded-for');
+  const realIP = headersList.get('x-real-ip');
+  const cfConnectingIP = headersList.get('cf-connecting-ip');
+
+  // 2. 从 Vercel Edge 获取
+  const vercelIP = request.ip;
+
+  // 3. 按优先级返回
+  return (
+    // Cloudflare 优先
+    cfConnectingIP ||
+    // x-real-ip 次之
+    realIP ||
+    // x-forwarded-for 取第一个
+    forwardedFor?.split(',')[0].trim() ||
+    // Vercel Edge IP
+    vercelIP ||
+    // 默认
+    '0.0.0.0'
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { sources, clientIp } = await request.json();
+    const { sources } = await request.json();
+
+    // 获取客户端 IP
+    const clientIp = getClientIP(request);
 
     // 获取 Edge 位置信息
     const edge = {
@@ -16,9 +46,9 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
-    // 使用前端传来的 IP 作为主要 IP,优先使用 ipify、ipapi.co 和 ip-api.com 的结果
+    // 使用 Edge 和请求头获取的 IP 作为主要 IP
     const response = {
-      ip: clientIp || sources?.ipify?.ip || sources?.ipapico?.ip || sources?.ipapicom?.ip || '-',
+      ip: clientIp,
       edge,
       sources,
       timestamp: new Date().toISOString(),
