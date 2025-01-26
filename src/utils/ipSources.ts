@@ -579,22 +579,6 @@ export async function getApipCcInfo() {
   }
 }
 
-// 获取 ipify 信息
-export async function getIpifyInfo() {
-  try {
-    const response = await fetchWithTimeout('https://api.ipify.org?format=json');
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return {
-      ip: data.ip,
-    };
-  } catch (error) {
-    console.error('ipify查询失败:', error);
-    return null;
-  }
-}
-
 // 获取 ipquery.io 数据源
 export async function getIpQueryInfo() {
   try {
@@ -631,50 +615,6 @@ export async function getIpQueryInfo() {
   }
 }
 
-// 修改 ip-api.com 数据源
-export async function getIpApiComInfo() {
-  try {
-    const response = await fetchWithTimeout('http://ip-api.com/json/?fields=24903679');
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (data.status !== 'success') return null;
-
-    return {
-      ip: data.query,
-      location: {
-        country: data.country,
-        country_code: data.countryCode,
-        region: data.regionName,
-        city: data.city,
-        district: data.district,
-        timezone: data.timezone,
-        latitude: data.lat,
-        longitude: data.lon,
-        continent: data.continent,
-        continentCode: data.continentCode,
-      },
-      network: {
-        asn: data.as,
-        organization: data.org,
-        isp: data.isp,
-        asname: data.asname,
-      },
-      security: {
-        proxy: data.proxy,
-        mobile: data.mobile,
-        hosting: data.hosting,
-      },
-      meta: {
-        reverse: data.reverse,
-      },
-    };
-  } catch (error) {
-    console.error('ip-api.com查询失败:', error);
-    return null;
-  }
-}
-
 // 获取所有数据源信息
 export async function getAllSourcesInfo() {
   const sources: Record<string, any> = {};
@@ -700,8 +640,6 @@ export async function getAllSourcesInfo() {
     getZxincInfo().then(data => data && (sources.zxinc = data)),
     getApipCcInfo().then(data => data && (sources.apipcc = data)),
     getIpQueryInfo().then(data => data && (sources.ipquery = data)),
-    getIpApiComInfo().then(data => data && (sources.ipapicom = data)),
-    getIpifyInfo().then(data => data && (sources.ipify = data)),
   ];
 
   await Promise.allSettled(promises);
