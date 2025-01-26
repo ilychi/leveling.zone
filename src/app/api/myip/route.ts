@@ -30,6 +30,35 @@ function getClientIP(request: NextRequest): string {
   );
 }
 
+// GET 方法处理直接访问
+export async function GET(request: NextRequest) {
+  try {
+    // 获取客户端 IP
+    const clientIp = getClientIP(request);
+
+    // 获取 Edge 位置信息
+    const edge = {
+      country: request.geo?.country || '-',
+      region: request.geo?.region || '-',
+      city: request.geo?.city || '-',
+      latitude: request.geo?.latitude || '-',
+      longitude: request.geo?.longitude || '-',
+    };
+
+    // 返回基本信息
+    const response = {
+      ip: clientIp,
+      edge,
+      timestamp: new Date().toISOString(),
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('获取IP信息失败:', error);
+    return NextResponse.json({ error: '获取IP信息失败' }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { sources } = await request.json();
@@ -58,7 +87,7 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     });
@@ -75,7 +104,7 @@ export async function OPTIONS(request: NextRequest) {
     {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     }
