@@ -725,27 +725,17 @@ export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   const headersList = headers();
-
-  // 优先使用 Cloudflare 的真实客户端 IP
   const ip = (
-    headersList.get('cf-connecting-ip') ||
     headersList.get('x-real-ip') ||
     headersList.get('x-forwarded-for')?.split(',')[0] ||
-    request.ip ||
     '127.0.0.1'
   ).trim();
 
   try {
-    // 获取 Edge 位置信息
-    const edge = {
-      country: request.geo?.country || '-',
-      region: request.geo?.region || '-',
-      city: request.geo?.city || '-',
-      latitude: request.geo?.latitude || '-',
-      longitude: request.geo?.longitude || '-',
-    };
+    // 获取ping0数据
+    const ping0Data = await getPing0Info(ip);
 
-    // 获取所有数据源信息
+    // 并行获取所有数据源
     const [cloudflareInfo, externalSources] = await Promise.all([
       getCloudflareInfo(),
       getExternalSources(ip),
@@ -759,7 +749,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ip,
-      edge,
+      ping0: ping0Data,
       sources,
       timestamp: new Date().toISOString(),
     });
@@ -772,18 +762,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { sources, clientIp } = await request.json();
-    const headersList = headers();
-
-    // 优先使用客户端传来的 IP，然后是 Cloudflare 的真实客户端 IP
-    const ip =
-      clientIp ||
-      (
-        headersList.get('cf-connecting-ip') ||
-        headersList.get('x-real-ip') ||
-        headersList.get('x-forwarded-for')?.split(',')[0] ||
-        request.ip ||
-        '-'
-      ).trim();
 
     // 获取 Edge 位置信息
     const edge = {
@@ -794,8 +772,9 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
+    // 使用前端传来的 IP 作为主要 IP,优先使用 ipify、ipapi.co 和 ip-api.com 的结果
     const response = {
-      ip,
+      ip: clientIp || sources?.ipify?.ip || sources?.ipapico?.ip || sources?.ipapicom?.ip || '-',
       edge,
       sources,
       timestamp: new Date().toISOString(),
