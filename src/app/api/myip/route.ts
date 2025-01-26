@@ -725,9 +725,13 @@ export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   const headersList = headers();
+
+  // 优先使用 Cloudflare 的真实客户端 IP
   const ip = (
+    headersList.get('cf-connecting-ip') ||
     headersList.get('x-real-ip') ||
     headersList.get('x-forwarded-for')?.split(',')[0] ||
+    request.ip ||
     '127.0.0.1'
   ).trim();
 
@@ -768,6 +772,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { sources, clientIp } = await request.json();
+    const headersList = headers();
+
+    // 优先使用客户端传来的 IP，然后是 Cloudflare 的真实客户端 IP
+    const ip =
+      clientIp ||
+      (
+        headersList.get('cf-connecting-ip') ||
+        headersList.get('x-real-ip') ||
+        headersList.get('x-forwarded-for')?.split(',')[0] ||
+        request.ip ||
+        '-'
+      ).trim();
 
     // 获取 Edge 位置信息
     const edge = {
@@ -778,9 +794,8 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
-    // 使用前端传来的 IP 作为主要 IP
     const response = {
-      ip: clientIp || sources?.ipify?.ip || sources?.ipapico?.ip || sources?.ipapicom?.ip || '-',
+      ip,
       edge,
       sources,
       timestamp: new Date().toISOString(),
