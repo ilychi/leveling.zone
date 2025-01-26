@@ -732,10 +732,16 @@ export async function GET(request: NextRequest) {
   ).trim();
 
   try {
-    // 获取ping0数据
-    const ping0Data = await getPing0Info(ip);
+    // 获取 Edge 位置信息
+    const edge = {
+      country: request.geo?.country || '-',
+      region: request.geo?.region || '-',
+      city: request.geo?.city || '-',
+      latitude: request.geo?.latitude || '-',
+      longitude: request.geo?.longitude || '-',
+    };
 
-    // 并行获取所有数据源
+    // 获取所有数据源信息
     const [cloudflareInfo, externalSources] = await Promise.all([
       getCloudflareInfo(),
       getExternalSources(ip),
@@ -749,7 +755,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ip,
-      ping0: ping0Data,
+      edge,
       sources,
       timestamp: new Date().toISOString(),
     });
@@ -761,16 +767,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sources } = await request.json();
-    const headersList = headers();
-
-    // 从请求头获取真实 IP
-    const clientIp = (
-      headersList.get('x-real-ip') ||
-      headersList.get('x-forwarded-for')?.split(',')[0] ||
-      request.ip ||
-      '-'
-    ).trim();
+    const { sources, clientIp } = await request.json();
 
     // 获取 Edge 位置信息
     const edge = {
@@ -781,9 +778,9 @@ export async function POST(request: NextRequest) {
       longitude: request.geo?.longitude || '-',
     };
 
-    // 使用请求头中的真实 IP
+    // 使用前端传来的 IP 作为主要 IP
     const response = {
-      ip: clientIp,
+      ip: clientIp || sources?.ipify?.ip || sources?.ipapico?.ip || sources?.ipapicom?.ip || '-',
       edge,
       sources,
       timestamp: new Date().toISOString(),
