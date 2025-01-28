@@ -25,6 +25,14 @@ interface IPInfo {
   sources?: {
     [key: string]: any;
   };
+  edge?: {
+    country: string;
+    region: string;
+    city: string;
+    latitude: string;
+    longitude: string;
+  };
+  timestamp?: string;
 }
 
 interface SourceConfig {
@@ -69,33 +77,70 @@ function MyIPContent() {
     return sourceConfig[source]?.name || source;
   };
 
+  // 从请求头获取IP的函数
+  const getIPFromHeaders = async () => {
+    try {
+      const response = await fetch('/api/myip', {
+        method: 'HEAD',
+      });
+      // 按优先级尝试不同的请求头
+      return (
+        response.headers.get('x-real-ip') ||
+        response.headers.get('x-forwarded-for')?.split(',')[0] ||
+        response.headers.get('cf-connecting-ip') ||
+        null
+      );
+    } catch (error) {
+      console.error('从请求头获取IP失败:', error);
+      return null;
+    }
+  };
+
+  // 从 Cloudflare 获取IP的函数
+  const getIPFromCloudflare = async () => {
+    try {
+      const response = await fetch('https://1.1.1.1/cdn-cgi/trace');
+      if (!response.ok) return null;
+      const text = await response.text();
+      const data = Object.fromEntries(
+        text.trim().split('\n').map(line => line.split('='))
+      );
+      return data.ip || null;
+    } catch (error) {
+      console.error('从Cloudflare获取IP失败:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchIPInfo = async () => {
       try {
-        // 从前端直接获取所有数据源信息
-        const sourcesData = await getAllSourcesInfo();
-         
-        // 发送到后端进行整合
-        const response = await fetch('/api/myip', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sources: sourcesData,
-            clientIp: await fetch('https://api.ipify.org?format=json')
-              .then(res => res.json())
-              .then(data => data.ip)
-              .catch(() => null)
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('获取IP信息失败');
+        // 优先从请求头获取IP
+        let clientIp = await getIPFromHeaders();
+        
+        // 如果请求头获取失败，尝试使用 Cloudflare API
+        if (!clientIp) {
+          clientIp = await getIPFromCloudflare();
         }
 
-        const data = await response.json();
-        setIpInfo(data);
+        // 从前端直接获取所有数据源信息
+        const sourcesData = await getAllSourcesInfo();
+        
+        // 获取 Edge 位置信息（如果在 Edge runtime 环境中）
+        const edge = {
+          country: '-',
+          region: '-',
+          city: '-',
+          latitude: '-',
+          longitude: '-',
+        };
+
+        setIpInfo({
+          ip: clientIp || '未知',
+          edge,
+          sources: sourcesData,
+          timestamp: new Date().toISOString(),
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : '未知错误');
       } finally {

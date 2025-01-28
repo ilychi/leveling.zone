@@ -23,10 +23,9 @@ export function handleLocalhost(ip: string): string {
   return ip;
 }
 
-export function cleanupObject<T extends Record<string, any>>(obj: T): void {
-  if (!obj) return;
-  Object.keys(obj).forEach(key => {
-    if (obj[key] === undefined || obj[key] === null || obj[key] === '-') {
+export function cleanupObject(obj: any): void {
+  for (const key in obj) {
+    if (obj[key] === null || obj[key] === undefined) {
       delete obj[key];
     } else if (typeof obj[key] === 'object') {
       cleanupObject(obj[key]);
@@ -34,7 +33,7 @@ export function cleanupObject<T extends Record<string, any>>(obj: T): void {
         delete obj[key];
       }
     }
-  });
+  }
 }
 
 export function getCountryFlag(country: string): string {
@@ -60,7 +59,8 @@ export function getCountryFlag(country: string): string {
 }
 
 export function getClientIP(request: NextRequest): string {
-  let ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+  let ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
     request.headers.get('x-real-ip') ||
     request.ip ||
     '127.0.0.1';
@@ -72,4 +72,23 @@ export function getClientIP(request: NextRequest): string {
   }
 
   return ip;
+}
+
+// 格式化 ASN 号码
+export function formatAsn(asn: string | number | undefined): string | undefined {
+  if (!asn) return undefined;
+  const asnStr = asn.toString();
+  return asnStr.startsWith('AS') ? asnStr : `AS${asnStr}`;
+}
+
+// 标准化坐标
+export function normalizeCoordinates(
+  lat?: number,
+  lon?: number
+): { latitude?: number; longitude?: number } {
+  if (!lat || !lon) return {};
+  return {
+    latitude: parseFloat(lat.toFixed(4)),
+    longitude: parseFloat(lon.toFixed(4)),
+  };
 }

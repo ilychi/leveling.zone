@@ -615,48 +615,6 @@ export async function getIpQueryInfo() {
   }
 }
 
-// 获取 ip-api.com 数据源
-export async function getIpApiComInfo() {
-  try {
-    const response = await fetchWithTimeout('http://ip-api.com/json?fields=24903679');
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (data.status !== 'success') return null;
-
-    return {
-      ip: data.query,
-      location: {
-        continent: data.continent,
-        continentCode: data.continentCode,
-        country: data.country,
-        country_code: data.countryCode,
-        region: data.region,
-        regionName: data.regionName,
-        city: data.city,
-        district: data.district,
-        zip: data.zip,
-        timezone: data.timezone,
-        latitude: data.lat,
-        longitude: data.lon,
-      },
-      network: {
-        asn: `AS${data.as.split(' ')[0].substring(2)}`,
-        organization: data.org,
-        isp: data.isp,
-      },
-      security: {
-        proxy: data.proxy,
-        mobile: data.mobile,
-        hosting: data.hosting,
-      },
-    };
-  } catch (error) {
-    console.error('ip-api.com查询失败:', error);
-    return null;
-  }
-}
-
 // 获取所有数据源信息
 export async function getAllSourcesInfo() {
   const sources: Record<string, any> = {};
@@ -682,7 +640,6 @@ export async function getAllSourcesInfo() {
     getZxincInfo().then(data => data && (sources.zxinc = data)),
     getApipCcInfo().then(data => data && (sources.apipcc = data)),
     getIpQueryInfo().then(data => data && (sources.ipquery = data)),
-    getIpApiComInfo().then(data => data && (sources.ipapicom = data)),
   ];
 
   await Promise.allSettled(promises);

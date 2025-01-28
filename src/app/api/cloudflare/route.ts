@@ -1,8 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
+
+interface GeoInfo {
+  ip: string;
+  location: {
+    city?: string;
+    country?: string;
+    countryCode?: string;
+    region?: string;
+    postalCode?: string;
+    latitude?: number;
+    longitude?: number;
+    timezone?: string;
+    flag?: string;
+  };
+  network: {
+    datacenter?: string;
+    asn?: string;
+    organization?: string;
+    http?: string;
+    tls?: string;
+    warp?: string;
+  };
+  connection: {
+    protocol?: string;
+    browserType?: string;
+    sliver?: string;
+    sni?: string;
+    gateway?: string;
+    rbi?: string;
+    kex?: string;
+  };
+  timestamp: string;
+}
 
 interface CloudflareTraceData {
-  fl: string;
-  h: string;
   ip: string;
   ts: string;
   visit_scheme: string;
@@ -17,13 +49,10 @@ interface CloudflareTraceData {
   gateway: string;
   rbi: string;
   kex: string;
-  [key: string]: string;
 }
 
 interface CloudflareSpeedMeta {
-  hostname: string;
   clientIp: string;
-  httpProtocol: string;
   asn: string;
   asOrganization: string;
   colo: string;
@@ -33,226 +62,248 @@ interface CloudflareSpeedMeta {
   postalCode: string;
   latitude: string;
   longitude: string;
+  timezone: string;
 }
 
-interface CloudflareInfo {
-  ip: string;
-  location: {
-    country: string;
-    region: string;
-    city: string;
-    postalCode?: string;
-    latitude?: number;
-    longitude?: number;
-  };
-  network: {
-    datacenter: string;
-    asn: string;
-    organization: string;
-    http: string;
-    tls: string;
-    warp: string;
-  };
-  connection: {
-    protocol: string;
-    browserType: string;
-    sliver: string;
-    sni: string;
-    gateway: string;
-    rbi: string;
-    kex: string;
-  };
-  timestamp: string;
-  [key: string]: any;
+// 从请求头获取真实IP
+function getClientIP(request: NextRequest): string | undefined {
+  const headersList = headers();
+
+  // 按优先级获取IP
+  return (
+    headersList.get('cf-connecting-ip') || // Cloudflare
+    headersList.get('x-real-ip') || // 标准代理头
+    headersList.get('x-forwarded-for')?.split(',')[0].trim() || // 代理链第一个IP
+    request.ip || // 请求IP
+    undefined
+  );
 }
 
-async function getCloudflareTrace(): Promise<CloudflareTraceData | null> {
+// 从 Cloudflare 获取 trace 数据
+async function getCloudflareTrace(clientIP?: string): Promise<Record<string, string> | null> {
   try {
     const response = await fetch('https://1.1.1.1/cdn-cgi/trace');
-    if (!response.ok) {
-      console.error('Cloudflare Trace请求失败:', response.status);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const text = await response.text();
-    const data = text.split('\n').reduce((acc, line) => {
-      const [key, value] = line.split('=');
-      if (key && value) {
-        acc[key.trim()] = value.trim();
-      }
-      return acc;
-    }, {} as CloudflareTraceData);
-
-    // 验证必要字段
-    const requiredFields = ['ip', 'loc', 'colo', 'http', 'tls'];
-    const missingFields = requiredFields.filter(field => !data[field]);
-    if (missingFields.length > 0) {
-      console.error('Cloudflare Trace缺少必要字段:', missingFields);
-      return null;
+    const data = Object.fromEntries(
+      text
+        .trim()
+        .split('\n')
+        .map(line => line.split('='))
+    );
+    // 如果有真实IP，替换trace数据中的IP
+    if (clientIP) {
+      data.ip = clientIP;
     }
-
     return data;
   } catch (error) {
-    console.error('Cloudflare Trace查询失败:', error);
+    console.error('从Cloudflare获取trace失败:', error);
     return null;
   }
 }
 
-async function getCloudflareSpeedMeta(): Promise<CloudflareSpeedMeta | null> {
+// 从 Cloudflare 获取 speed meta 数据
+async function getCloudflareSpeedMeta(clientIP?: string): Promise<Record<string, string> | null> {
   try {
-    const response = await fetch('https://speed.cloudflare.com/meta', {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.error('Cloudflare Speed Meta请求失败:', response.status);
-      return null;
-    }
-
+    const response = await fetch('https://speed.cloudflare.com/meta');
+    if (!response.ok) return null;
     const data = await response.json();
-
-    // 验证必要字段
-    const requiredFields = ['clientIp', 'asn', 'city', 'country'];
-    const missingFields = requiredFields.filter(field => !data[field]);
-    if (missingFields.length > 0) {
-      console.error('Cloudflare Speed Meta缺少必要字段:', missingFields);
-      return null;
+    // 如果有真实IP，替换meta数据中的IP
+    if (clientIP) {
+      data.clientIp = clientIP;
     }
-
     return data;
   } catch (error) {
-    console.error('Cloudflare Speed Meta查询失败:', error);
+    console.error('从Cloudflare获取speed meta失败:', error);
     return null;
   }
 }
 
-async function getCloudflareInfo(): Promise<CloudflareInfo | null> {
+// 将国家代码转换为旗帜表情
+function getFlagEmoji(countryCode: string): string {
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+async function getGeoInfo(request: NextRequest): Promise<GeoInfo | null> {
   try {
+    const headersList = headers();
+    const clientIP = getClientIP(request);
+
+    // 优先使用 Cloudflare 请求头
+    const cfHeaders = {
+      ip: clientIP,
+      city: headersList.get('cf-ipcity'),
+      country: headersList.get('cf-ipcountry'),
+      region: headersList.get('cf-region'),
+      timezone: headersList.get('cf-timezone'),
+      latitude: headersList.get('cf-latitude'),
+      longitude: headersList.get('cf-longitude'),
+      asOrganization: headersList.get('cf-asorganization'),
+    };
+
+    // 如果在本地环境或没有足够的CF头信息，从API获取补充数据
     const [traceData, metaData] = await Promise.all([
-      getCloudflareTrace(),
-      getCloudflareSpeedMeta()
+      getCloudflareTrace(clientIP),
+      getCloudflareSpeedMeta(clientIP),
     ]);
 
-    if (!traceData || !metaData) return null;
-
-    const info: CloudflareInfo = {
-      ip: metaData.clientIp || traceData.ip,
+    // 构建地理信息，优先使用CF头信息，其次使用API数据
+    const geoInfo: GeoInfo = {
+      ip: cfHeaders.ip || metaData?.clientIp || traceData?.ip || '',
       location: {
-        country: metaData.country || traceData.loc,
-        region: metaData.region || '',
-        city: metaData.city || '',
-        postalCode: metaData.postalCode,
-        latitude: metaData.latitude ? parseFloat(metaData.latitude) : undefined,
-        longitude: metaData.longitude ? parseFloat(metaData.longitude) : undefined,
+        city: cfHeaders.city || metaData?.city,
+        country: cfHeaders.country || metaData?.country,
+        countryCode: cfHeaders.country || metaData?.country,
+        region: cfHeaders.region || metaData?.region,
+        postalCode: metaData?.postalCode,
+        latitude: cfHeaders.latitude
+          ? parseFloat(cfHeaders.latitude)
+          : metaData?.latitude
+          ? parseFloat(metaData.latitude)
+          : undefined,
+        longitude: cfHeaders.longitude
+          ? parseFloat(cfHeaders.longitude)
+          : metaData?.longitude
+          ? parseFloat(metaData.longitude)
+          : undefined,
+        timezone: cfHeaders.timezone || metaData?.timezone,
       },
       network: {
-        datacenter: metaData.colo || traceData.colo,
-        asn: metaData.asn,
-        organization: metaData.asOrganization,
-        http: traceData.http,
-        tls: traceData.tls,
-        warp: traceData.warp,
+        datacenter: metaData?.colo || traceData?.colo,
+        asn: metaData?.asn,
+        organization: cfHeaders.asOrganization || metaData?.asOrganization,
+        http: traceData?.http,
+        tls: traceData?.tls,
+        warp: traceData?.warp,
       },
       connection: {
-        protocol: traceData.visit_scheme,
-        browserType: traceData.uag,
-        sliver: traceData.sliver,
-        sni: traceData.sni,
-        gateway: traceData.gateway,
-        rbi: traceData.rbi,
-        kex: traceData.kex,
+        protocol: traceData?.visit_scheme,
+        browserType: traceData?.uag,
+        sliver: traceData?.sliver,
+        sni: traceData?.sni,
+        gateway: traceData?.gateway,
+        rbi: traceData?.rbi,
+        kex: traceData?.kex,
       },
       timestamp: new Date().toISOString(),
     };
 
-    // 清理空值
-    Object.keys(info).forEach(key => {
-      if (typeof info[key] === 'object' && info[key] !== null) {
-        Object.keys(info[key]).forEach(subKey => {
-          if (info[key][subKey] === undefined || info[key][subKey] === '') {
-            delete info[key][subKey];
-          }
-        });
-      }
-    });
+    // 添加国旗表情
+    if (geoInfo.location.countryCode) {
+      geoInfo.location.flag = getFlagEmoji(geoInfo.location.countryCode);
+    }
 
-    return info;
+    // 在开发环境下，如果没有数据，添加模拟数据
+    if (process.env.NODE_ENV === 'development' && (!traceData || !metaData)) {
+      const mockData = {
+        location: {
+          city: '上海',
+          country: '中国',
+          countryCode: 'CN',
+          region: '上海市',
+          postalCode: '200000',
+          latitude: 31.2222,
+          longitude: 121.4581,
+          timezone: 'Asia/Shanghai',
+          flag: '🇨🇳',
+        },
+        network: {
+          datacenter: 'SHA',
+          asn: '4134',
+          organization: 'China Telecom',
+          http: 'http/2',
+          tls: 'TLSv1.3',
+          warp: 'off',
+        },
+        connection: {
+          protocol: 'https',
+          browserType: 'curl/7.64.1',
+          sliver: 'none',
+          sni: 'plaintext',
+          gateway: 'off',
+          rbi: 'off',
+          kex: 'X25519',
+        },
+      };
+
+      geoInfo.location = { ...geoInfo.location, ...mockData.location };
+      geoInfo.network = { ...geoInfo.network, ...mockData.network };
+      geoInfo.connection = { ...geoInfo.connection, ...mockData.connection };
+    }
+
+    return geoInfo;
   } catch (error) {
-    console.error('Cloudflare信息查询失败:', error);
+    console.error('获取地理信息失败:', error);
     return null;
   }
 }
 
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type') || 'all';
+    const geoInfo = await getGeoInfo(request);
 
-    // 检查 IP 参数
-    const ip = searchParams.get('ip');
-    if (ip) {
+    if (!geoInfo) {
       return NextResponse.json(
-        {
-          error: 'API限制',
-          message: 'Cloudflare公共API不支持查询特定IP地址，只能获取当前访问者的信息。',
-          documentation: 'https://developers.cloudflare.com/fundamentals/api/',
-        },
+        { error: '无法获取IP信息' },
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+          },
         }
       );
     }
 
-    let data: any = null;
-
-    switch (type) {
-      case 'trace':
-        data = await getCloudflareTrace();
-        break;
-      case 'meta':
-        data = await getCloudflareSpeedMeta();
-        break;
-      case 'all':
-      default:
-        data = await getCloudflareInfo();
-        break;
-    }
-
-    if (!data) {
-      return NextResponse.json(
-        {
-          error: '查询失败',
-          message: '无法获取Cloudflare数据',
-          timestamp: new Date().toISOString(),
-        },
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        }
-      );
-    }
-
-    return new NextResponse(JSON.stringify(data, null, 2), {
+    return new NextResponse(JSON.stringify(geoInfo, null, 2), {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=60',
+        'Access-Control-Allow-Origin': '*',
+        'x-client-ip': geoInfo.ip,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     });
   } catch (error) {
-    console.error('Cloudflare API错误:', error);
+    console.error('处理请求时发生错误:', error);
     return NextResponse.json(
       {
-        error: '服务器错误',
-        message: '处理请求时发生错误',
-        timestamp: new Date().toISOString(),
+        error: '获取IP信息失败',
+        details: error instanceof Error ? error.message : String(error),
       },
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+        },
       }
     );
   }
-} 
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
+export async function HEAD(request: NextRequest) {
+  const geoInfo = await getGeoInfo(request);
+  return new Response(null, {
+    headers: {
+      'x-client-ip': geoInfo?.ip || '',
+    },
+  });
+}
