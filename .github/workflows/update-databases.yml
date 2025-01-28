@@ -34,13 +34,28 @@ jobs:
         run: |
           # 创建数据目录
           mkdir -p data/db
+          mkdir -p public/db
           
-          # 直接运行更新脚本
+          # 运行更新脚本
           npm run update-db
           
+          # 复制数据库文件到 public 目录（用于 Vercel 部署）
+          cp data/db/* public/db/
+          
           # 列出下载的文件
+          echo "数据目录文件列表："
           ls -la data/db/
+          echo "公共目录文件列表："
+          ls -la public/db/
         continue-on-error: false
+
+      - name: Commit and push if there are changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add public/db/
+          git commit -m "Update IP databases" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
           
       - name: Create Release
         id: create_release
@@ -67,3 +82,30 @@ jobs:
             data/db/*.csv
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 构建 Docker 镜像
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        if: success()
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: success()
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        if: success()
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.run_number }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.revision=${{ github.sha }}
