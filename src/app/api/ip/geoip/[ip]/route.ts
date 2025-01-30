@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
-import maxmind, { CityResponse, ASNResponse } from 'maxmind';
+import * as maxmind from 'maxmind';
+import type { CityResponse, AsnResponse } from 'maxmind';
 import { handleLocalhost } from '@/utils/ip';
 
 interface RouteParams {
@@ -36,7 +37,7 @@ function getName(names?: { zh_CN?: string; en?: string }): string | undefined {
 
 export async function GET(request: Request, { params }: RouteParams) {
   let cityReader: maxmind.Reader<CityResponse> | null = null;
-  let asnReader: maxmind.Reader<ASNResponse> | null = null;
+  let asnReader: maxmind.Reader<AsnResponse> | null = null;
 
   try {
     const ip = handleLocalhost(params.ip);
@@ -57,21 +58,26 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     try {
       cityReader = await maxmind.open<CityResponse>(path.join(DB_DIR, 'GeoLite2-City.mmdb'));
-      asnReader = await maxmind.open<ASNResponse>(path.join(DB_DIR, 'GeoLite2-ASN.mmdb'));
+      asnReader = await maxmind.open<AsnResponse>(path.join(DB_DIR, 'GeoLite2-ASN.mmdb'));
     } catch (error) {
       throw new Error('数据库文件不存在或无法访问');
     }
 
-    const cityResult = await cityReader.city(ip);
-    const asnResult = await asnReader.asn(ip);
+    const cityResult = await cityReader.get(ip);
+    const asnResult = await asnReader.get(ip);
+
+    if (!cityResult || !asnResult) {
+      throw new Error('IP not found in database');
+    }
 
     // 构建响应数据
     const rawResponse = {
       ip,
       network: {
-        asn: asnResult.autonomousSystemNumber ? `AS${asnResult.autonomousSystemNumber}` : undefined,
-        organization: asnResult.autonomousSystemOrganization,
-        route: cityResult.traits?.network?.toString(),
+        asn: asnResult.autonomous_system_number
+          ? `AS${asnResult.autonomous_system_number}`
+          : undefined,
+        organization: asnResult.autonomous_system_organization,
       },
       location: {
         continent: cityResult.continent
@@ -82,30 +88,30 @@ export async function GET(request: Request, { params }: RouteParams) {
           : undefined,
         country: cityResult.country
           ? {
-              code: cityResult.country.isoCode,
+              code: cityResult.country.iso_code,
               name: getName(cityResult.country.names),
-              isEU: cityResult.country.isInEuropeanUnion,
+              isEU: cityResult.country.is_in_european_union,
               confidence: cityResult.country.confidence,
             }
           : undefined,
-        registeredCountry: cityResult.registeredCountry
+        registeredCountry: cityResult.registered_country
           ? {
-              code: cityResult.registeredCountry.isoCode,
-              name: getName(cityResult.registeredCountry.names),
-              isEU: cityResult.registeredCountry.isInEuropeanUnion,
+              code: cityResult.registered_country.iso_code,
+              name: getName(cityResult.registered_country.names),
+              isEU: cityResult.registered_country.is_in_european_union,
             }
           : undefined,
-        representedCountry: cityResult.representedCountry
+        representedCountry: cityResult.represented_country
           ? {
-              code: cityResult.representedCountry.isoCode,
-              name: getName(cityResult.representedCountry.names),
-              type: cityResult.representedCountry.type,
-              isEU: cityResult.representedCountry.isInEuropeanUnion,
+              code: cityResult.represented_country.iso_code,
+              name: getName(cityResult.represented_country.names),
+              type: cityResult.represented_country.type,
+              isEU: cityResult.represented_country.is_in_european_union,
             }
           : undefined,
         region: cityResult.subdivisions?.[0]
           ? {
-              code: cityResult.subdivisions[0].isoCode,
+              code: cityResult.subdivisions[0].iso_code,
               name: getName(cityResult.subdivisions[0].names),
               confidence: cityResult.subdivisions[0].confidence,
             }
@@ -120,18 +126,18 @@ export async function GET(request: Request, { params }: RouteParams) {
           ? {
               lat: cityResult.location.latitude,
               lon: cityResult.location.longitude,
-              radius: cityResult.location.accuracyRadius,
+              radius: cityResult.location.accuracy_radius,
             }
           : undefined,
         postal: cityResult.postal?.code,
-        timezone: cityResult.location?.timeZone,
-        metro: cityResult.location?.metroCode,
+        timezone: cityResult.location?.time_zone,
+        metro: cityResult.location?.metro_code,
       },
       traits: {
         isp: cityResult.traits?.isp,
         organization: cityResult.traits?.organization,
-        userType: cityResult.traits?.userType,
-        connectionType: cityResult.traits?.connectionType,
+        userType: cityResult.traits?.user_type,
+        connectionType: cityResult.traits?.connection_type,
       },
       meta: {
         source: 'maxmind',
@@ -171,12 +177,5 @@ export async function GET(request: Request, { params }: RouteParams) {
         },
       }
     );
-  } finally {
-    try {
-      if (cityReader) await cityReader.close();
-      if (asnReader) await asnReader.close();
-    } catch (error) {
-      console.error('关闭数据库连接失败:', error);
-    }
   }
 }
