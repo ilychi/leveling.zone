@@ -63,13 +63,19 @@ async function downloadFileWithRetry(
 }
 
 async function getLatestRelease(): Promise<Release> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'Vercel-Build-Script',
+  };
+
+  // 如果有 token 就添加认证头
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
+  }
+
   const response = await axios({
     method: 'get',
     url: 'https://api.github.com/repos/ilychi/leveling.zone/releases/latest',
-    headers: {
-      'User-Agent': 'Vercel-Build-Script',
-      Authorization: `token ${process.env.GITHUB_TOKEN}`,
-    },
+    headers,
   });
 
   return response.data;
