@@ -57,6 +57,7 @@ jobs:
         id: version
         run: |
           echo "VERSION=$(date +'%Y.%m.%d')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
           
       - name: Commit and push if there are changes
         run: |
@@ -120,7 +121,7 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository }}:$(date +'%Y.%m.%d')
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.DATE }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}
