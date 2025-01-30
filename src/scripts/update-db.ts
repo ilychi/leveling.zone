@@ -59,17 +59,17 @@ const databases = {
   maxmind: [
     {
       name: 'GeoLite2-ASN',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-ASN.mmdb',
       filename: 'GeoLite2-ASN.mmdb',
     },
     {
       name: 'GeoLite2-City',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-City.mmdb',
       filename: 'GeoLite2-City.mmdb',
     },
     {
       name: 'GeoLite2-Country',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-Country.mmdb',
       filename: 'GeoLite2-Country.mmdb',
     },
   ],
@@ -135,33 +135,52 @@ async function copyFromRelease(filename: string): Promise<boolean> {
   }
 }
 
-async function downloadFile(url: string, filename: string): Promise<void> {
-  const response = await axios({
-    method: 'get',
-    url,
-    responseType: 'stream',
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    },
-  });
+async function downloadFile(
+  url: string,
+  outputPath: string,
+  headers: Record<string, string> = {}
+): Promise<void> {
+  try {
+    const maxRetries = 3;
+    let retryCount = 0;
 
-  // 确保目标目录存在
-  Object.values(DB_DIRS).forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    while (retryCount < maxRetries) {
+      try {
+        const response = await axios({
+          method: 'get',
+          url,
+          responseType: 'stream',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Encoding': 'gzip, compress, deflate, br',
+            ...headers,
+          },
+          timeout: 30000, // 30 秒超时
+        });
+
+        const writer = fs.createWriteStream(outputPath);
+        response.data.pipe(writer);
+
+        await new Promise<void>((resolve, reject) => {
+          writer.on('finish', () => resolve());
+          writer.on('error', reject);
+        });
+
+        return;
+      } catch (error) {
+        retryCount++;
+        if (retryCount === maxRetries) {
+          throw error;
+        }
+        console.log(`下载失败，正在进行第 ${retryCount} 次重试...`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 等待 5 秒后重试
+      }
     }
-  });
-
-  // 下载到所有目标目录
-  await Promise.all(
-    Object.entries(DB_DIRS).map(([key, dir]) => {
-      const outputPath = path.join(dir, filename);
-      return streamPipeline(response.data, fs.createWriteStream(outputPath)).then(() =>
-        console.log(`成功下载到 ${key} 目录: ${outputPath}`)
-      );
-    })
-  );
+  } catch (error) {
+    console.error(`下载失败: ${error}`);
+    throw error;
+  }
 }
 
 async function updateDatabases(): Promise<void> {
