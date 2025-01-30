@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
-import { Reader } from '@maxmind/geoip2-node';
+import maxmind, { CityResponse, ASNResponse } from 'maxmind';
 import { handleLocalhost } from '@/utils/ip';
 
 interface RouteParams {
@@ -35,8 +35,8 @@ function getName(names?: { zh_CN?: string; en?: string }): string | undefined {
 }
 
 export async function GET(request: Request, { params }: RouteParams) {
-  let cityReader: Reader | null = null;
-  let asnReader: Reader | null = null;
+  let cityReader: maxmind.Reader<CityResponse> | null = null;
+  let asnReader: maxmind.Reader<ASNResponse> | null = null;
 
   try {
     const ip = handleLocalhost(params.ip);
@@ -56,8 +56,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     const DB_DIR = path.join(process.cwd(), 'data', 'db');
 
     try {
-      cityReader = await Reader.open(path.join(DB_DIR, 'GeoLite2-City.mmdb'));
-      asnReader = await Reader.open(path.join(DB_DIR, 'GeoLite2-ASN.mmdb'));
+      cityReader = await maxmind.open<CityResponse>(path.join(DB_DIR, 'GeoLite2-City.mmdb'));
+      asnReader = await maxmind.open<ASNResponse>(path.join(DB_DIR, 'GeoLite2-ASN.mmdb'));
     } catch (error) {
       throw new Error('数据库文件不存在或无法访问');
     }
