@@ -32,6 +32,7 @@ jobs:
         env:
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
           IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 创建数据目录
           mkdir -p data/db
@@ -120,9 +121,9 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.DATE }}
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:latest
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:${{ steps.version.outputs.DATE }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}

@@ -68,6 +68,7 @@ async function getLatestRelease(): Promise<Release> {
     url: 'https://api.github.com/repos/ilychi/leveling.zone/releases/latest',
     headers: {
       'User-Agent': 'Vercel-Build-Script',
+      Authorization: `token ${process.env.GITHUB_TOKEN}`,
     },
   });
 
