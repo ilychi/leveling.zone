@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write      # 添加写入权限用于创建 release
+  packages: write     # 添加写入权限用于推送 Docker 镜像
 
 jobs:
   update-databases:
@@ -106,6 +107,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
+        if: success()
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -113,16 +115,17 @@ jobs:
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
+        if: success()
         with:
           context: .
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.DATE }}
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.DATE }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.created=${{ steps.version.outputs.DATE }}T13:51:45Z
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
             org.opencontainers.image.title=IP Database Service

@@ -13,11 +13,17 @@ RUN npm install
 # 复制源代码
 COPY . .
 
-# 复制数据库文件
-COPY public/db /app/data/db
+# 创建数据库目录
+RUN mkdir -p /app/data/db /app/public/db
+
+# 下载数据库文件
+RUN npm run download-db
 
 # 构建应用
 RUN npm run build
+
+# 创建数据库目录的 volume
+VOLUME ["/app/data/db"]
 
 # 暴露端口
 EXPOSE 3000
