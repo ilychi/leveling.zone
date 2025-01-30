@@ -39,8 +39,12 @@ jobs:
           # 运行更新脚本
           npm run update-db
           
-          # 复制数据库文件到 public 目录（用于 Vercel 部署）
-          cp data/db/* public/db/
+          # 确保所有文件都被复制到 public 目录
+          rm -rf public/db/*  # 清空目标目录
+          cp -f data/db/*.mmdb public/db/ || true
+          cp -f data/db/*.BIN public/db/ || true
+          cp -f data/db/*.ipdb public/db/ || true
+          cp -f data/db/*.csv public/db/ || true
           
           # 列出下载的文件
           echo "数据目录文件列表："
@@ -49,12 +53,22 @@ jobs:
           ls -la public/db/
         continue-on-error: false
 
+      - name: Set version
+        id: version
+        run: |
+          echo "VERSION=$(date +'%Y.%m.%d')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          
       - name: Commit and push if there are changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add public/db/
-          git commit -m "Update IP databases" || echo "No changes to commit"
+          # 确保添加所有数据库文件
+          git add public/db/*.mmdb || true
+          git add public/db/*.BIN || true
+          git add public/db/*.ipdb || true
+          git add public/db/*.csv || true
+          git status
+          git commit -m "Update IP databases (v${{ steps.version.outputs.VERSION }})" || echo "No changes to commit"
           git push origin main || echo "No changes to push"
           
       - name: Create Release
@@ -62,11 +76,12 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: success()
         with:
-          tag_name: ip-db-${{ github.run_number }}
-          name: IP Database Update ${{ github.run_number }}
+          tag_name: ip-db-${{ steps.version.outputs.VERSION }}
+          name: IP Database Update ${{ steps.version.outputs.VERSION }}
           body: |
             自动更新IP数据库
             更新时间：${{ github.event.schedule }}
+            版本：${{ steps.version.outputs.VERSION }}
             
             更新内容：
             - IP2Location 数据库
@@ -103,9 +118,14 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.run_number }}
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository }}:$(date +'%Y.%m.%d')
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.title=IP Database Service
+            org.opencontainers.image.description=IP Geolocation and ASN Database Service
+            org.opencontainers.image.licenses=MIT

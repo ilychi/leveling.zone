@@ -3,12 +3,19 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { pipeline } from 'stream';
+import { execSync } from 'child_process';
 
 const streamPipeline = promisify(pipeline);
 
 // 下载令牌
 const IP2LOCATION_TOKEN = process.env.IP2LOCATION_TOKEN || '';
 const IPINFO_TOKEN = process.env.IPINFO_TOKEN || '';
+
+// 数据库目录配置
+const DB_DIRS = {
+  data: path.join(process.cwd(), 'data', 'db'),
+  public: path.join(process.cwd(), 'public', 'db'),
+};
 
 // 数据库配置
 const databases = {
@@ -34,17 +41,17 @@ const databases = {
   dbip: [
     {
       name: 'dbip-asn-ipv4',
-      url: 'https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-asn-mmdb/dbip-asn-ipv4.mmdb',
+      url: 'https://raw.githubusercontent.com/adysec/IP_database/main/db-ip/dbip-asn-lite.mmdb',
       filename: 'dbip-asn-lite.mmdb',
     },
     {
       name: 'dbip-city-ipv4',
-      url: 'https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-city-mmdb/dbip-city-ipv4.mmdb',
+      url: 'https://raw.githubusercontent.com/adysec/IP_database/main/db-ip/dbip-city-lite.mmdb',
       filename: 'dbip-city-lite.mmdb',
     },
     {
       name: 'dbip-country-ipv4',
-      url: 'https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-country-mmdb/dbip-country-ipv4.mmdb',
+      url: 'https://raw.githubusercontent.com/adysec/IP_database/main/db-ip/dbip-country-lite.mmdb',
       filename: 'dbip-country-lite.mmdb',
     },
   ],
@@ -96,7 +103,39 @@ const databases = {
   ],
 };
 
-async function downloadFile(url: string, outputPath: string): Promise<void> {
+async function copyFromRelease(filename: string): Promise<boolean> {
+  try {
+    // 检查 release 目录是否存在
+    const releaseDir = path.join(process.cwd(), 'release');
+    const releaseFile = path.join(releaseDir, filename);
+
+    if (fs.existsSync(releaseFile)) {
+      console.log(`从 release 目录复制 ${filename}...`);
+
+      // 确保目标目录存在
+      Object.values(DB_DIRS).forEach(dir => {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+      });
+
+      // 复制到所有目标目录
+      Object.entries(DB_DIRS).forEach(([key, dir]) => {
+        const targetPath = path.join(dir, filename);
+        fs.copyFileSync(releaseFile, targetPath);
+        console.log(`成功复制到 ${key} 目录: ${targetPath}`);
+      });
+
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error(`从 release 复制 ${filename} 失败:`, error);
+    return false;
+  }
+}
+
+async function downloadFile(url: string, filename: string): Promise<void> {
   const response = await axios({
     method: 'get',
     url,
@@ -107,16 +146,31 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
     },
   });
 
-  await streamPipeline(response.data, fs.createWriteStream(outputPath));
+  // 确保目标目录存在
+  Object.values(DB_DIRS).forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+
+  // 下载到所有目标目录
+  await Promise.all(
+    Object.entries(DB_DIRS).map(([key, dir]) => {
+      const outputPath = path.join(dir, filename);
+      return streamPipeline(response.data, fs.createWriteStream(outputPath)).then(() =>
+        console.log(`成功下载到 ${key} 目录: ${outputPath}`)
+      );
+    })
+  );
 }
 
 async function updateDatabases(): Promise<void> {
-  const outputDir = path.join(process.cwd(), 'data', 'db');
-
-  // 确保输出目录存在
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  // 确保所有目标目录存在
+  Object.values(DB_DIRS).forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
 
   // 下载 IP2Location 数据库
   if (IP2LOCATION_TOKEN) {
@@ -124,10 +178,9 @@ async function updateDatabases(): Promise<void> {
     for (const db of databases.ip2location) {
       try {
         const url = `https://www.ip2location.com/download/?token=${IP2LOCATION_TOKEN}&file=${db.code}`;
-        const outputPath = path.join(outputDir, db.filename);
 
         console.log(`下载 ${db.name}...`);
-        await downloadFile(url, outputPath);
+        await downloadFile(url, db.filename);
         console.log(`${db.name} 下载完成`);
       } catch (error) {
         console.error(`处理 ${db.name} 失败:`, error);
@@ -141,11 +194,18 @@ async function updateDatabases(): Promise<void> {
   console.log('正在更新 DB-IP 数据库...');
   for (const db of databases.dbip) {
     try {
-      console.log(`下载 ${db.name}...`);
-      await downloadFile(db.url, path.join(outputDir, db.filename));
-      console.log(`${db.name} 下载完成`);
+      console.log(`处理 ${db.name}...`);
+
+      // 首先尝试从 release 复制
+      const copied = await copyFromRelease(db.filename);
+      if (!copied) {
+        // 如果复制失败，则从 URL 下载
+        console.log(`从 URL 下载 ${db.name}...`);
+        await downloadFile(db.url, db.filename);
+      }
+      console.log(`${db.name} 处理完成`);
     } catch (error) {
-      console.error(`下载 ${db.name} 失败:`, error);
+      console.error(`处理 ${db.name} 失败:`, error);
     }
   }
 
@@ -154,7 +214,7 @@ async function updateDatabases(): Promise<void> {
   for (const db of databases.maxmind) {
     try {
       console.log(`下载 ${db.name}...`);
-      await downloadFile(db.url, path.join(outputDir, db.filename));
+      await downloadFile(db.url, db.filename);
       console.log(`${db.name} 下载完成`);
     } catch (error) {
       console.error(`下载 ${db.name} 失败:`, error);
@@ -171,7 +231,7 @@ async function updateDatabases(): Promise<void> {
 
     try {
       console.log(`下载 ${db.name}...`);
-      await downloadFile(db.url, path.join(outputDir, db.filename));
+      await downloadFile(db.url, db.filename);
       console.log(`${db.name} 下载完成`);
     } catch (error) {
       console.error(`下载 ${db.name} 失败:`, error);
@@ -183,7 +243,7 @@ async function updateDatabases(): Promise<void> {
   for (const db of databases.others) {
     try {
       console.log(`下载 ${db.name}...`);
-      await downloadFile(db.url, path.join(outputDir, db.filename));
+      await downloadFile(db.url, db.filename);
       console.log(`${db.name} 下载完成`);
     } catch (error) {
       console.error(`下载 ${db.name} 失败:`, error);
