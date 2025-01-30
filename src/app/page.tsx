@@ -30,9 +30,252 @@ const countryToFlag = (countryCode: string) => {
 
 // 添加随机IP生成函数
 const getRandomIP = () => {
-  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const num = nums[Math.floor(Math.random() * nums.length)];
+  const num = Math.floor(Math.random() * 9) + 1;
   return `${num}${num}${num}.${num}${num}${num}.${num}${num}${num}.${num}${num}${num}`;
+};
+
+// 数据源配置类型定义
+type SourceConfig = {
+  [key: string]: {
+    name: string;
+    order: number;
+  };
+};
+
+// 数据源配置
+const SOURCE_CONFIG: SourceConfig = {
+  // 中国数据源
+  'qqwry': { name: '🇨🇳 纯真数据库', order: 1 },
+  'geocn': { name: '🇨🇳 GeoCN数据库', order: 1 },
+  'vore': { name: '🇨🇳 VORE API', order: 1 },
+  
+  // 其他数据源
+  'geoip': { name: '🌏 MaxMind数据库', order: 2 },
+  'dbip': { name: '🌏 DB-IP数据库', order: 2 },
+  'ipinfo': { name: '🌏 IPinfo数据库', order: 2 },
+  'ip2': { name: '🌏 IP2Location数据库', order: 2 },
+  'ip2location': { name: '🌏 ip2location.io', order: 2 },
+  'ipapi': { name: '🌏 IP-API.com', order: 2 },
+  'ipbase': { name: '🌏 ipbase.com', order: 2 },
+  'ipdata': { name: '🌏 ipdata.co', order: 2 },
+  'ipquery': { name: '🌏 ipquery.io', order: 2 },
+  'ipregistry': { name: '🌏 ipregistry.io', order: 2 },
+  'iptoasn': { name: '🌏 IPtoASN', order: 2 },
+  'asnInfo': { name: '🌏 ASN-Info', order: 2 }
+};
+
+// 格式化 ASN 信息
+const formatASNInfo = (source: string, data: any) => {
+  if (!data) return '-';
+
+  const formatASN = (asn: string | number) => {
+    if (!asn) return '';
+    const asnStr = asn.toString().replace(/^AS?/, '');
+    return `AS${asnStr}`;
+  };
+
+  const formatParts = (parts: (string | undefined)[]) => parts.filter(Boolean).join(' | ');
+
+  switch(source) {
+    case 'geoip':
+      return data.network?.asn && data.network?.organization
+        ? `${data.network.asn} | ${data.network.organization}`
+        : '-';
+    
+    case 'ipinfo':
+      if (!data.network?.asn) return '-';
+      return `AS${data.network.asn.number} | ${data.network.asn.name}`;
+    
+    case 'iptoasn':
+      if (!data.network) return '-';
+      return formatParts([
+        data.network.asn,
+        data.network.description,
+        data.network.organization,
+        data.network.handle
+      ]);
+    
+    case 'dbip':
+      if (!data.network) return '-';
+      return `${data.network.asn} | ${data.network.organization || '-'}`;
+    
+    case 'ipquery':
+      if (!data.isp) return '-';
+      return formatParts([
+        data.isp.asn,
+        data.isp.org,
+        data.isp.isp !== data.isp.org ? data.isp.isp : null
+      ]);
+    
+    case 'qqwry':
+      if (!data.network) return '-';
+      return formatParts([data.network.isp, data.network.organization]);
+    
+    case 'geocn':
+      return data.network?.isp || '-';
+    
+    case 'ipregistry':
+      if (!data.connection) return '-';
+      return formatParts([
+        `AS${data.connection.asn}`,
+        data.connection.organization,
+        data.company?.name !== data.connection.organization ? data.company?.name : null
+      ]);
+    
+    case 'ipbase':
+      if (!data.data?.connection) return '-';
+      return formatParts([
+        `AS${data.data.connection.asn}`,
+        data.data.connection.organization,
+        data.data.connection.isp !== data.data.connection.organization ? data.data.connection.isp : null
+      ]);
+    
+    case 'ipdata':
+      if (!data.asn) return '-';
+      return formatParts([
+        data.asn.asn,
+        data.asn.name,
+        data.asn.domain
+      ]);
+    
+    case 'ipapi':
+      if (!data.network) return '-';
+      return formatParts([
+        data.network.asn,
+        data.network.asname,
+        data.network.org
+      ]);
+    
+    case 'vore':
+      if (!data.network) return '-';
+      return data.network.isp || '-';
+    
+    default:
+      if (data.network?.asn) {
+        const asn = formatASN(data.network.asn);
+        const org = data.network.organization || data.network.name || '-';
+        return `${asn} | ${org}`;
+      }
+      return '-';
+  }
+};
+
+// 格式化位置信息
+const formatLocation = (source: string, data: any) => {
+  if (!data) return '-';
+
+  const formatParts = (parts: (string | undefined)[]) => parts.filter(Boolean).join(' • ');
+  const getFlag = (code: string) => code ? countryToFlag(code) : '';
+
+  switch(source) {
+    case 'geoip':
+      if (!data.location) return '-';
+      const parts = [
+        data.location.country?.name,
+        data.location.region?.name,
+        data.location.city?.name
+      ];
+      return `${getFlag(data.location.country?.code)} ${formatParts(parts)}`;
+    
+    case 'ipinfo':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.country)} ${formatParts([
+        data.location.country === 'US' ? 'United States' : data.location.country,
+        data.location.region,
+        data.location.city
+      ])}`;
+    
+    case 'ipquery':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.country_code)} ${formatParts([
+        data.location.country,
+        data.location.state,
+        data.location.city
+      ])}`;
+    
+    case 'qqwry':
+      if (!data.location) return '-';
+      const qqwryParts = [
+        data.location.country,
+        data.location.region,
+        data.location.city,
+        data.location.district
+      ].filter(Boolean);
+      return qqwryParts.length > 0 ? `${getFlag(data.location.countryCode)} ${qqwryParts.join(' • ')}` : '-';
+    
+    case 'dbip':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.country?.code)} ${formatParts([
+        data.location.country?.code === 'US' ? 'United States' : data.location.country?.code,
+        data.location.region?.name,
+        data.location.city?.name
+      ])}`;
+    
+    case 'geocn':
+      if (!data.location) return '-';
+      return formatParts([
+        data.location.country,
+        data.location.province || data.location.region,
+        data.location.city,
+        data.location.district
+      ]);
+    
+    case 'ipregistry':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.country?.code)} ${formatParts([
+        data.location.country?.name,
+        data.location.region?.name,
+        data.location.city
+      ])}`;
+    
+    case 'ipbase':
+      if (!data.data?.location) return '-';
+      return `${getFlag(data.data.location.country?.alpha2)} ${formatParts([
+        data.data.location.country?.name,
+        data.data.location.region?.name,
+        data.data.location.city?.name
+      ])}`;
+    
+    case 'ipdata':
+      if (!data.country_code) return '-';
+      return `${getFlag(data.country_code)} ${formatParts([
+        data.country_name,
+        data.region,
+        data.city
+      ])}`;
+    
+    case 'ipapi':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.countryCode)} ${formatParts([
+        data.location.country,
+        data.location.region,
+        data.location.city
+      ])}`;
+    
+    case 'iptoasn':
+      return '-'; // iptoasn 不提供位置信息
+    
+    case 'vore':
+      if (!data.location) return '-';
+      return `${getFlag(data.location.countryCode)} ${formatParts([
+        data.location.country,
+        data.location.region,
+        data.location.city
+      ])}`;
+    
+    default:
+      if (data.location) {
+        const countryCode = data.location.country?.code || data.location.countryCode || data.location.country_code;
+        const flag = getFlag(countryCode);
+        const parts = [
+          data.location.country?.name || data.location.country,
+          data.location.region?.name || data.location.region || data.location.state,
+          data.location.city?.name || data.location.city
+        ];
+        return parts.some(Boolean) ? `${flag} ${formatParts(parts)}` : '-';
+      }
+      return '-';
+  }
 };
 
 export default function Home() {
@@ -76,21 +319,22 @@ function HomeContent() {
       const mainData = await mainResponse.json();
       
       // 获取额外数据源
-      const extraSources = ['ipbase', 'ipdata', 'ipquery', 'ipregistry', 'ip2location_io'];
-      const extraDataPromises = extraSources.map(async (source) => {
-        try {
-          const response = await fetch(`/api/ip/${source}/${targetIp}`);
-          if (response.ok) {
-            const data = await response.json();
-            return { source, data };
+      const extraSources = Object.keys(SOURCE_CONFIG);
+      
+      const extraResults = await Promise.all(
+        extraSources.map(async (source) => {
+          try {
+            const response = await fetch(`/api/ip/${source}/${targetIp}`);
+            if (response.ok) {
+              const data = await response.json();
+              return { source, data };
+            }
+          } catch (error) {
+            console.error(`${source} 查询失败:`, error);
           }
-        } catch (error) {
-          console.error(`${source} 查询失败:`, error);
-        }
-        return null;
-      });
-
-      const extraResults = await Promise.all(extraDataPromises);
+          return null;
+        })
+      );
       
       // 合并数据源
       const combinedSources = { ...mainData.sources };
@@ -152,7 +396,7 @@ function HomeContent() {
                 </span>
               </a>
             </div>
-            <div className={`top-0 left-0 items-start hidden w-full h-full p-4 text-sm bg-gray-900 bg-opacity-50 md:items-center md:w-3/4 md:absolute lg:text-base md:bg-transparent md:p-0 md:relative md:flex ${showMenu ? 'flex fixed' : 'hidden'}`}>
+            <div className={`top-0 left-0 items-start hidden w-full h-full p-4 text-sm bg-gray-900 bg-opacity-50 md:items-center md:w-3/4 md:absolute lg:text-base md:bg-transparent md:p0 md:relative md:flex ${showMenu ? 'flex fixed' : 'hidden'}`}>
               <div className="flex-col w-full h-auto overflow-hidden bg-white rounded-lg md:bg-transparent md:overflow-visible md:rounded-none md:relative md:flex md:flex-row">
                 <div className="w-full"></div>
                 <div className="flex flex-col items-start justify-end w-full pt-4 md:items-center md:w-1/3 md:flex-row md:py-0">
@@ -235,143 +479,34 @@ function HomeContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(queryResult.sources).map(([source, data]: [string, any]) => {
-                      // 格式化数据源名称
-                      const getSourceName = (source: string) => {
-                        const sourceMap: { [key: string]: string } = {
-                          'maxmind': '🌏 MaxMind数据库',
-                          'ip2location': '🌏 IP2Location数据库',
-                          'dbip': '🌏 DB-IP数据库',
-                          'ipinfo': '🌏 IPinfo数据库',
-                          'iptoasn': '🌏 IPtoASN数据库',
-                          'asnInfo': '🌏 ASN-Info数据库',
-                          'qqwry': '🇨🇳 纯真 IP数据库',
-                          'geocn': '🇨🇳 GeoCN数据库',
-                          'ipdata': '🌏 ipdata.co',
-                          'ipbase': '🌏 ipbase.com',
-                          'ipquery': '🌏 ipquery.io',
-                          'ipregistry': '🌏 ipregistry.io',
-                          'ip2location_io': '🌏 ip2location.io'
-                        };
-                        return sourceMap[source] || source;
-                      };
+                    {Object.entries(queryResult.sources)
+                      .sort(([sourceA], [sourceB]) => {
+                        const sourceInfoA = SOURCE_CONFIG[sourceA] || { name: sourceA, order: 3 };
+                        const sourceInfoB = SOURCE_CONFIG[sourceB] || { name: sourceB, order: 3 };
 
-                      // 统一 ASN 信息格式
-                      let asnInfo = '';
-                      if (source === 'iptoasn' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.organization || '-'}`;
-                      } else if (source === 'asnInfo' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.handle}${data.network.description ? ` (${data.network.description})` : ''}`;
-                      } else if (source === 'ipdata' && data.asn) {
-                        const asn = data.asn.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.asn.name}${data.asn.domain ? ` (${data.asn.domain})` : ''}`;
-                      } else if (source === 'ipbase' && data.data?.connection) {
-                        const conn = data.data.connection;
-                        asnInfo = `AS${conn.asn} | ${conn.organization}${conn.isp && conn.isp !== conn.organization ? ` (${conn.isp})` : ''}`;
-                      } else if (source === 'ipregistry' && data.connection) {
-                        asnInfo = `AS${data.connection.asn} | ${data.connection.organization}${data.connection.domain ? ` (${data.connection.domain})` : ''}`;
-                      } else if (source === 'ipquery' && data.isp) {
-                        asnInfo = `AS${data.isp.asn?.replace(/^AS/, '')} | ${data.isp.org}${data.isp.isp && data.isp.isp !== data.isp.org ? ` (${data.isp.isp})` : ''}`;
-                      } else if (data.network?.asn) {
-                        const asn = data.network.asn.toString().replace(/^AS?/, '');
-                        let org = '';
-                        if (data.network.organization) {
-                          org = data.network.organization;
-                        } else if (data.meta?.organization?.name) {
-                          org = data.meta.organization.name;
-                        } else if (data.network.name) {
-                          org = data.network.name;
+                        if (sourceInfoA.order !== sourceInfoB.order) {
+                          return sourceInfoA.order - sourceInfoB.order;
                         }
-                        asnInfo = `AS${asn} | ${org || '-'}`;
-                      } else if (data.network?.isp) {
-                        asnInfo = data.network.isp;
-                      } else if (source === 'ip2location_io' && data.network) {
-                        const asn = data.network.asn?.toString().replace(/^AS?/, '');
-                        asnInfo = `AS${asn} | ${data.network.organization}${data.network.isp !== data.network.organization ? ` (${data.network.isp})` : ''}`;
-                      }
-
-                      // 获取地理位置信息并添加国旗
-                      let location = '-';
-                      if (source === 'ipdata') {
-                        const parts = [
-                          data.country_name,
-                          data.region,
-                          data.city
-                        ].filter(Boolean);
-                        const flag = data.country_code ? countryToFlag(data.country_code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipbase' && data.data?.location) {
-                        const loc = data.data.location;
-                        const parts = [
-                          loc.country?.name,
-                          loc.region?.name,
-                          loc.city?.name
-                        ].filter(Boolean);
-                        const flag = loc.country?.alpha2 ? countryToFlag(loc.country.alpha2) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipregistry') {
-                        const parts = [
-                          data.location.country?.name,
-                          data.location.region?.name,
-                          data.location.city
-                        ].filter(Boolean);
-                        const flag = data.location.country?.code ? countryToFlag(data.location.country.code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (source === 'ipquery' && data.location) {
-                        const parts = [
-                          data.location.country,
-                          data.location.state,
-                          data.location.city
-                        ].filter(Boolean);
-                        const flag = data.location.country_code ? countryToFlag(data.location.country_code) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      } else if (data.location) {
-                        const countryCode = data.location.countryCode || data.location.country_code || '';
-                        const flag = countryCode ? countryToFlag(countryCode) : '';
-                        
-                        // 处理中国特有的地址格式
-                        if (source === 'geocn' || source === 'qqwry') {
-                          const parts = [
-                            data.location.country,
-                            data.location.province || data.location.region,
-                            data.location.city,
-                            data.location.district
-                          ].filter(Boolean);
-                          location = parts.join(' • ') || '-';
-                        } else {
-                          const parts = [
-                            data.location.country,
-                            data.location.region,
-                            data.location.city
-                          ].filter(Boolean);
-                          location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                        }
-                      } else if (source === 'ip2location_io' && data.location) {
-                        const parts = [
-                          data.location.country,
-                          data.location.region,
-                          data.location.city,
-                          data.location.district
-                        ].filter(Boolean);
-                        const flag = data.location.countryCode ? countryToFlag(data.location.countryCode) : '';
-                        location = parts.length > 0 ? `${flag} ${parts.join(' • ')}` : '-';
-                      }
-
-                      return (
+                        return sourceInfoA.name.localeCompare(sourceInfoB.name);
+                      })
+                      .map(([source, data]: [string, any]) => (
                         <tr key={source} className="border-t border-gray-200 hover:bg-gray-50">
-                          <td className="py-3 pr-4 text-sm text-gray-500">{getSourceName(source)}</td>
+                          <td className="py-3 pr-4 text-sm text-gray-500">
+                            {SOURCE_CONFIG[source]?.name || source}
+                          </td>
                           <td className="py-3 px-4 text-sm">
                             <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 text-neutral-500">
                               {ipAddress}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-900">{asnInfo || '-'}</td>
-                          <td className="py-3 pl-4 text-sm text-gray-900">{location || '-'}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">
+                            {formatASNInfo(source, data)}
+                          </td>
+                          <td className="py-3 pl-4 text-sm text-gray-900">
+                            {formatLocation(source, data)}
+                          </td>
                         </tr>
-                      );
-                    })}
+                      ))}
                   </tbody>
                 </table>
               </div>

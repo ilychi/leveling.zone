@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./data/db:/app/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 数据库更新服务
+  updater:
+    build: .
+    command: npm run schedule-update
+    environment:
+      - NODE_ENV=production
+      - IP2LOCATION_TOKEN=${IP2LOCATION_TOKEN}
+      - IPINFO_TOKEN=${IPINFO_TOKEN}
+    volumes:
+      - ./data/db:/app/data/db
+    restart: unless-stopped
+    depends_on:
+      - app 

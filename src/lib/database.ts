@@ -1,6 +1,7 @@
 import path from 'path';
 import { Reader } from '@maxmind/geoip2-node';
 import { IP2Location } from 'ip2location-nodejs';
+import { IP2LocationResult, IP2LocationResponse } from '../types/ip2location';
 
 export interface IPQueryResult {
   city?: string;
@@ -161,22 +162,26 @@ export class DatabaseService {
       if (!result.region) result.region = cityResult.region;
 
       if (!result.location) result.location = {};
-      if (!result.location.latitude)
-        result.location.latitude = parseFloat(cityResult.latitude.toString());
-      if (!result.location.longitude)
-        result.location.longitude = parseFloat(cityResult.longitude.toString());
-      if (!result.location.timezone) result.location.timezone = cityResult.timeZone;
-      if (!result.location.zipcode) result.location.zipcode = cityResult.zipCode;
 
-      if (!result.asn) result.asn = parseInt(asnResult.asn || '0');
-      if (!result.asnOrg) result.asnOrg = asnResult.as;
+      // 位置信息
+      if (cityResult?.latitude !== undefined) {
+        result.location.latitude = cityResult.latitude;
+      }
+      if (cityResult?.longitude !== undefined) {
+        result.location.longitude = cityResult.longitude;
+      }
+      if (cityResult?.zipCode) {
+        result.location.zipcode = cityResult.zipCode;
+      }
 
-      result.network = {
-        proxy: (proxyResult as any).proxy_type !== '-',
-        isp: proxyResult.isp,
-        domain: proxyResult.domain,
-        usageType: (proxyResult as any).usage_type,
-      };
+      // 网络信息
+      if (!result.network) result.network = {};
+      if (cityResult?.provider) {
+        result.network.isp = cityResult.provider;
+      }
+      if (cityResult?.asn) {
+        result.asn = cityResult.asn;
+      }
 
       result.source!.push('IP2Location');
     } catch (error) {

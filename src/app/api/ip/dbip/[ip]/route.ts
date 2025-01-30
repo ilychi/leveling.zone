@@ -17,35 +17,48 @@ async function getDbipInfo(ip: string) {
 
     if (!cityResult && !asnResult) return null;
 
-    const coords = normalizeCoordinates(
-      cityResult?.location?.latitude,
-      cityResult?.location?.longitude
-    );
+    const coords = normalizeCoordinates(cityResult?.latitude, cityResult?.longitude);
 
     const result = {
       ip,
       location: {
-        continent: cityResult?.continent?.names?.en,
-        continentCode: cityResult?.continent?.code,
-        country: cityResult?.country?.names?.en,
-        countryCode: cityResult?.country?.iso_code,
-        isEU: cityResult?.country?.is_in_european_union,
-        region: cityResult?.subdivisions?.[0]?.names?.en,
-        regionCode: cityResult?.subdivisions?.[0]?.iso_code,
-        city: cityResult?.city?.names?.en,
-        ...coords,
-        timezone: cityResult?.location?.time_zone,
-        geonameId: cityResult?.city?.geoname_id,
+        country: cityResult?.country_code
+          ? {
+              code: cityResult.country_code,
+            }
+          : null,
+        region: cityResult?.state1
+          ? {
+              name: cityResult.state1,
+              code: `US-${cityResult.state1.substring(0, 2).toUpperCase()}`,
+            }
+          : null,
+        city: cityResult?.city
+          ? {
+              name: cityResult.city,
+            }
+          : null,
+        postal: cityResult?.postcode
+          ? {
+              code: cityResult.postcode,
+            }
+          : null,
+        coordinates: coords,
+        timezone: cityResult?.timezone || null,
       },
-      network: {
-        asn: formatAsn(asnResult?.autonomous_system_number),
-        organization: asnResult?.autonomous_system_organization,
-        network: asnResult?.network,
-        route: asnResult?.route,
-      },
+      network: asnResult
+        ? {
+            asn: formatAsn(asnResult.autonomous_system_number),
+            organization: asnResult.autonomous_system_organization,
+          }
+        : null,
       meta: {
-        accuracy: cityResult?.location?.accuracy_radius,
         source: 'dbip',
+        timestamp: new Date().toISOString(),
+        databases: {
+          city: 'dbip-city-lite.mmdb',
+          asn: 'dbip-asn-lite.mmdb',
+        },
       },
     };
 
