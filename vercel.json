@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install",
+  "buildCommand": "yarn vercel-build",
+  "installCommand": "yarn install",
   "framework": "nextjs",
   "regions": ["hkg1"],
   "builds": [

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "update-db": "ts-node src/scripts/update-db.ts",
+    "update-db": "tsx src/scripts/update-db.ts",
+    "download-db": "tsx src/scripts/download-release-db.ts",
+    "vercel-build": "npm run build && npm run download-db",
     "schedule-update": "ts-node src/scripts/schedule-update.ts"
   },
   "dependencies": {
@@ -37,7 +39,7 @@
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.16",
-    "@types/node": "^20.17.14",
+    "@types/node": "^20.17.16",
     "@types/node-cron": "^3.0.11",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
