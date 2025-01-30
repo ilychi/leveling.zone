@@ -22,15 +22,12 @@ const streamPipeline = promisify(pipeline);
 const FALLBACK_SOURCES = {
   'GeoLite2-ASN.mmdb': [
     'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-ASN.mmdb',
-    'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/GeoLite2-ASN.mmdb',
   ],
   'GeoLite2-City.mmdb': [
     'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-City.mmdb',
-    'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/GeoLite2-City.mmdb',
   ],
   'GeoLite2-Country.mmdb': [
     'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-Country.mmdb',
-    'https://raw.githubusercontent.com/Loyalsoldier/geoip/release/GeoLite2-Country.mmdb',
   ],
 };
 
@@ -45,10 +42,13 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
         method: 'get',
         url,
         responseType: 'stream',
-        timeout: 60000, // 增加超时时间到 60 秒
+        timeout: 120000, // 增加超时时间到 120 秒
         headers: {
-          'User-Agent': 'Vercel-Build-Script',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          Accept: '*/*',
           'Accept-Encoding': 'gzip, deflate, br',
+          Connection: 'keep-alive',
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
@@ -91,7 +91,7 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
       console.error(`下载失败 (尝试 ${attempt}/${maxRetries}):`, lastError.message);
 
       if (attempt < maxRetries) {
-        const delay = attempt * 5000; // 递增等待时间
+        const delay = attempt * 10000; // 增加等待时间到 10 秒
         console.log(`等待 ${delay / 1000} 秒后重试...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
