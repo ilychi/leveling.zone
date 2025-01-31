@@ -127,17 +127,10 @@ async function downloadDatabases(): Promise<void> {
   }
 }
 
-// 如果直接运行脚本，则执行下载
-if (require.main === module) {
-  downloadDatabases()
-    .then(() => {
-      console.log('数据库下载完成');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('下载数据库时出错:', error);
-      process.exit(1);
-    });
-}
+// 直接调用主函数
+downloadReleaseDb().catch(error => {
+  console.error('下载发布数据库时发生错误:', error);
+  process.exit(1);
+});
 
 export { downloadDatabases };

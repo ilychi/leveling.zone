@@ -59,17 +59,17 @@ const databases = {
   maxmind: [
     {
       name: 'GeoLite2-ASN',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-ASN.mmdb',
       filename: 'GeoLite2-ASN.mmdb',
     },
     {
       name: 'GeoLite2-City',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-City.mmdb',
       filename: 'GeoLite2-City.mmdb',
     },
     {
       name: 'GeoLite2-Country',
-      url: 'https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb',
+      url: 'https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-Country.mmdb',
       filename: 'GeoLite2-Country.mmdb',
     },
   ],
@@ -92,12 +92,12 @@ const databases = {
     },
     {
       name: 'iptoasn-asn',
-      url: 'https://cdn.jsdelivr.net/npm/@ip-location-db/iptoasn-asn/iptoasn-asn-ipv4.csv',
+      url: 'https://raw.githubusercontent.com/sapics/ip-location-db/main/iptoasn-asn/iptoasn-asn-ipv4.csv',
       filename: 'iptoasn-asn.csv',
     },
     {
       name: 'as-info',
-      url: 'https://raw.githubusercontent.com/ipverse/asn-info/refs/heads/master/as.csv',
+      url: 'https://raw.githubusercontent.com/ipverse/asn-info/master/as.csv',
       filename: 'as-info.csv',
     },
   ],
@@ -251,17 +251,10 @@ async function updateDatabases(): Promise<void> {
   }
 }
 
-// 如果直接运行脚本，则执行更新
-if (require.main === module) {
-  updateDatabases()
-    .then(() => {
-      console.log('所有数据库更新完成');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('更新数据库时出错:', error);
-      process.exit(1);
-    });
-}
+// 直接调用主函数
+updateDatabases().catch(error => {
+  console.error('更新数据库时发生错误:', error);
+  process.exit(1);
+});
 
 export { updateDatabases };
