@@ -21,11 +21,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
           
       - name: Install dependencies
         run: |
-          npm ci
+          yarn install --frozen-lockfile
         continue-on-error: false
           
       - name: Update databases
@@ -39,7 +39,7 @@ jobs:
           mkdir -p public/db
           
           # 运行更新脚本
-          npm run update-db
+          yarn update-db
           
           # 确保所有文件都被复制到 public 目录
           rm -rf public/db/*  # 清空目标目录
