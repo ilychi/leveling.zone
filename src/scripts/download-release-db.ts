@@ -81,7 +81,7 @@ async function getLatestRelease(): Promise<Release> {
   return response.data;
 }
 
-async function downloadDatabases(): Promise<void> {
+async function downloadReleaseDb(): Promise<void> {
   try {
     console.log('获取最新 Release 信息...');
     const release = await getLatestRelease();
@@ -123,7 +123,7 @@ async function downloadDatabases(): Promise<void> {
     });
   } catch (error) {
     console.error('下载数据库时出错:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
@@ -133,4 +133,4 @@ downloadReleaseDb().catch(error => {
   process.exit(1);
 });
 
-export { downloadDatabases };
+export { downloadReleaseDb };
