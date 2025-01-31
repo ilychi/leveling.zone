@@ -81,7 +81,7 @@ async function getLatestRelease(): Promise<Release> {
   return response.data;
 }
 
-async function downloadReleaseDb(): Promise<void> {
+export async function downloadReleaseDb(): Promise<void> {
   try {
     console.log('获取最新 Release 信息...');
     const release = await getLatestRelease();
@@ -127,10 +127,10 @@ async function downloadReleaseDb(): Promise<void> {
   }
 }
 
-// 直接调用主函数
-downloadReleaseDb().catch(error => {
-  console.error('下载发布数据库时发生错误:', error);
-  process.exit(1);
-});
-
-export { downloadReleaseDb };
+// 如果是直接运行此文件
+if (import.meta.url === `file://${process.argv[1]}`) {
+  downloadReleaseDb().catch(error => {
+    console.error('下载发布数据库时发生错误:', error);
+    process.exit(1);
+  });
+}
