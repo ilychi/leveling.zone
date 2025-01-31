@@ -8,10 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "update-db": "tsx watch=false src/scripts/update-db.ts",
-    "download-db": "tsx watch=false src/scripts/download-release-db.ts",
+    "update-db": "tsx --no-watch src/scripts/update-db.ts",
+    "download-db": "tsx --no-watch src/scripts/download-release-db.ts",
     "vercel-build": "npm run build && npm run download-db",
-    "schedule-update": "tsx watch=false src/scripts/schedule-update.ts"
+    "schedule-update": "tsx --no-watch src/scripts/schedule-update.ts"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^4.2.0",
