@@ -23,17 +23,17 @@ const databases = {
   ip2location: [
     {
       name: 'DB11.LITE',
-      code: 'DB11LITE',
+      code: 'DB11LITEBIN',
       filename: 'IP2LOCATION-LITE-DB11.BIN',
     },
     {
       name: 'PX11.LITE',
-      code: 'PX11LITE',
+      code: 'PX11LITEBIN',
       filename: 'IP2LOCATION-LITE-PX11.BIN',
     },
     {
       name: 'DB-ASN.LITE',
-      code: 'DBASNLITE',
+      code: 'DBASNLITEBIN',
       filename: 'IP2LOCATION-LITE-ASN.BIN',
     },
   ],
