@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "update-db": "tsx src/scripts/update-db.ts",
-    "download-db": "tsx src/scripts/download-release-db.ts",
+    "update-db": "node --import tsx/esm src/scripts/update-db.ts",
+    "download-db": "node --import tsx/esm src/scripts/download-release-db.ts",
     "vercel-build": "npm run build && npm run download-db",
-    "schedule-update": "ts-node src/scripts/schedule-update.ts"
+    "schedule-update": "node --import tsx/esm src/scripts/schedule-update.ts"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^4.2.0",
