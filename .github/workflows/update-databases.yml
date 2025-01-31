@@ -21,11 +21,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
           
       - name: Install dependencies
         run: |
-          npm install
-          npm ls
+          npm ci
         continue-on-error: false
           
       - name: Update databases
@@ -82,17 +82,12 @@ jobs:
           tag_name: ip-db-${{ steps.version.outputs.VERSION }}
           name: IP Database Update ${{ steps.version.outputs.VERSION }}
           body: |
-            自动更新IP数据库
-            更新时间：${{ github.event.schedule }}
-            版本：${{ steps.version.outputs.VERSION }}
-            
-            更新内容：
-            - IP2Location 数据库
-            - MaxMind GeoLite2 数据库
-            - DB-IP 数据库
-            - IPinfo 数据库
-            - 纯真 IP 数据库
-            - ASN 信息数据库
+            🎉 自动更新 IP 数据库 🎉
+            ---------------------------------------------
+            • 更新时间：${{ github.event.schedule }}
+            • 版本：${{ steps.version.outputs.VERSION }}
+
+            感谢使用本项目，更多信息请参阅仓库说明。
           files: |
             data/db/*.mmdb
             data/db/*.BIN

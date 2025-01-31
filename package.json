@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "update-db": "node --import tsx/esm src/scripts/update-db.ts",
-    "download-db": "node --import tsx/esm src/scripts/download-release-db.ts",
+    "update-db": "tsx src/scripts/update-db.ts",
+    "download-db": "tsx src/scripts/download-release-db.ts",
     "vercel-build": "npm run build && npm run download-db",
-    "schedule-update": "node --import tsx/esm src/scripts/schedule-update.ts"
+    "schedule-update": "tsx src/scripts/schedule-update.ts"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^4.2.0",
@@ -48,7 +48,8 @@
     "eslint-config-next": "14.1.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "tsx": "^4.7.1"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
