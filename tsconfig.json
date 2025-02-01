@@ -7,8 +7,8 @@
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "node16",
-    "moduleResolution": "node16",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -37,8 +37,8 @@
   "exclude": ["node_modules"],
   "ts-node": {
     "compilerOptions": {
-      "module": "node16",
-      "moduleResolution": "node16"
+      "module": "esnext",
+      "moduleResolution": "bundler"
     }
   }
 }

@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+.next
+data/db/*
+public/db/*
+*.log
+.env*
+.vscode
+.idea
+README.md
+LICENSE
+*.md 

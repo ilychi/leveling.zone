@@ -20,16 +20,15 @@ COPY . .
 RUN mkdir -p /app/data/db /app/public/db
 
 # 创建启动脚本
-RUN echo '#!/bin/sh\n\
-if [ ! -f /app/data/db/.initialized ]; then\n\
-  echo "首次启动，开始下载数据库..."\n\
-  npm run download-db\n\
-  touch /app/data/db/.initialized\n\
-fi\n\
-\n\
-# 启动应用\n\
-exec npm start' > /app/docker-entrypoint.sh \
-&& chmod +x /app/docker-entrypoint.sh
+RUN echo '#!/bin/sh' > /app/docker-entrypoint.sh && \
+    echo 'if [ ! -f /app/data/db/.initialized ]; then' >> /app/docker-entrypoint.sh && \
+    echo '  echo "首次启动，开始下载数据库..."' >> /app/docker-entrypoint.sh && \
+    echo '  npm run download-db' >> /app/docker-entrypoint.sh && \
+    echo '  touch /app/data/db/.initialized' >> /app/docker-entrypoint.sh && \
+    echo 'fi' >> /app/docker-entrypoint.sh && \
+    echo '' >> /app/docker-entrypoint.sh && \
+    echo 'exec npm start' >> /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh
 
 # 构建应用
 RUN npm run build
@@ -41,7 +40,7 @@ VOLUME ["/app/data/db", "/app/public/db"]
 EXPOSE 3000
 
 # 启动应用
-CMD ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # 添加健康检查
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
