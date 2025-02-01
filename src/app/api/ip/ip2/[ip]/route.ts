@@ -50,7 +50,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const DB_DIR = path.join(process.cwd(), 'data', 'db');
+    const DB_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data', 'db');
 
     try {
       // 打开数据库文件

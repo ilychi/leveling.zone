@@ -9,7 +9,7 @@ const Libqqwry = require('lib-qqwry');
 import { getClientIP } from '@/utils/ip';
 import { DatabaseService } from '@/services/database';
 
-const DB_DIR = path.join(process.cwd(), 'data', 'db');
+const DB_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data', 'db');
 
 interface LocationInfo {
   latitude?: number | string;
@@ -112,23 +112,26 @@ export async function GET(request: NextRequest) {
       result.asnOrg = result.maxmind.asnOrg;
       result.location = result.maxmind.location;
       result.region = result.maxmind.region;
-      result.network = countryData.traits?.isAnonymous || false ? {
-        proxy: true,
-        network: result.maxmind.network,
-        isAnonymous: true,
-        isAnonymousVpn: countryData.traits?.isAnonymousVpn || false,
-        isHostingProvider: countryData.traits?.isHostingProvider || false,
-        isPublicProxy: countryData.traits?.isPublicProxy || false,
-        isTorExitNode: countryData.traits?.isTorExitNode || false,
-      } : {
-        proxy: false,
-        network: result.maxmind.network,
-        isAnonymous: countryData.traits?.isAnonymous || false,
-        isAnonymousVpn: countryData.traits?.isAnonymousVpn || false,
-        isHostingProvider: countryData.traits?.isHostingProvider || false,
-        isPublicProxy: countryData.traits?.isPublicProxy || false,
-        isTorExitNode: countryData.traits?.isTorExitNode || false,
-      };
+      result.network =
+        countryData.traits?.isAnonymous || false
+          ? {
+              proxy: true,
+              network: result.maxmind.network,
+              isAnonymous: true,
+              isAnonymousVpn: countryData.traits?.isAnonymousVpn || false,
+              isHostingProvider: countryData.traits?.isHostingProvider || false,
+              isPublicProxy: countryData.traits?.isPublicProxy || false,
+              isTorExitNode: countryData.traits?.isTorExitNode || false,
+            }
+          : {
+              proxy: false,
+              network: result.maxmind.network,
+              isAnonymous: countryData.traits?.isAnonymous || false,
+              isAnonymousVpn: countryData.traits?.isAnonymousVpn || false,
+              isHostingProvider: countryData.traits?.isHostingProvider || false,
+              isPublicProxy: countryData.traits?.isPublicProxy || false,
+              isTorExitNode: countryData.traits?.isTorExitNode || false,
+            };
     } catch (error) {
       console.error('MaxMind 查询失败:', error);
     }

@@ -9,7 +9,7 @@ import { cleanupObject } from '@/utils/cleanup';
 import { handleLocalhost } from '@/utils/ip';
 const IPDB = require('ipdb');
 
-const DB_DIR = './data/db';
+const DB_DIR = process.env.VERCEL ? '/tmp' : './data/db';
 
 interface LocationInfo {
   latitude?: number | string;

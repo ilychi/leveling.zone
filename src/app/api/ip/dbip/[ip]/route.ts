@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as maxmind from 'maxmind';
 import { cleanupObject, formatAsn, handleLocalhost, normalizeCoordinates } from '@/utils/ip';
 
-const DB_DIR = path.join(process.cwd(), 'data', 'db');
+const DB_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data', 'db');
 
 async function getDbipInfo(ip: string) {
   try {
