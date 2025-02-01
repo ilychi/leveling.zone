@@ -1,3 +1,5 @@
+export {};
+
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -164,7 +166,7 @@ async function downloadFile(url: string, filename: string): Promise<void> {
   );
 }
 
-async function updateDatabases(): Promise<void> {
+export async function updateDatabases(): Promise<void> {
   // 确保所有目标目录存在
   Object.values(DB_DIRS).forEach(dir => {
     if (!fs.existsSync(dir)) {
@@ -251,10 +253,10 @@ async function updateDatabases(): Promise<void> {
   }
 }
 
-// 直接调用主函数
-updateDatabases().catch(error => {
-  console.error('更新数据库时发生错误:', error);
-  process.exit(1);
-});
-
-export { updateDatabases };
+// 修改入口点检查
+if (import.meta.url === new URL(import.meta.url).protocol + '//' + process.argv[1]) {
+  updateDatabases().catch(error => {
+    console.error('更新数据库时发生错误:', error);
+    process.exit(1);
+  });
+}
