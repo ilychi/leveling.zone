@@ -23,10 +23,11 @@ const TIMEOUT = 30000; // 30 秒超时
 const RETRY_DELAY = 5000; // 5 秒重试延迟
 
 // 定义目标目录
-const TARGET_DIRS = [
-  path.join(process.cwd(), 'public', 'db'),
-  path.join(process.cwd(), 'data', 'db'),
-];
+const TARGET_DIRS = process.env.VERCEL
+  ? [
+      path.join(process.cwd(), 'public', 'db'), // 构建时的静态文件目录
+    ]
+  : [path.join(process.cwd(), 'public', 'db'), path.join(process.cwd(), 'data', 'db')];
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
