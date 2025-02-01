@@ -1,6 +1,9 @@
 # 使用 Node.js 20 作为基础镜像
 FROM node:20-alpine
 
+# 安装基础工具
+RUN apk add --no-cache curl
+
 # 设置工作目录
 WORKDIR /app
 
@@ -16,6 +19,18 @@ COPY . .
 # 创建数据库目录
 RUN mkdir -p /app/data/db /app/public/db
 
+# 创建启动脚本
+RUN echo '#!/bin/sh\n\
+if [ ! -f /app/data/db/.initialized ]; then\n\
+  echo "首次启动，开始下载数据库..."\n\
+  npm run download-db\n\
+  touch /app/data/db/.initialized\n\
+fi\n\
+\n\
+# 启动应用\n\
+exec npm start' > /app/docker-entrypoint.sh \
+&& chmod +x /app/docker-entrypoint.sh
+
 # 构建应用
 RUN npm run build
 
@@ -26,7 +41,7 @@ VOLUME ["/app/data/db", "/app/public/db"]
 EXPOSE 3000
 
 # 启动应用
-CMD ["npm", "start"]
+CMD ["/app/docker-entrypoint.sh"]
 
 # 添加健康检查
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
