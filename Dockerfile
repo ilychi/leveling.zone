@@ -30,8 +30,10 @@ RUN echo '#!/bin/sh' > /app/docker-entrypoint.sh && \
     echo 'exec npm start' >> /app/docker-entrypoint.sh && \
     chmod +x /app/docker-entrypoint.sh
 
-# 构建应用
+# 构建应用 - 添加空的BLOB令牌以防止构建失败
+ENV BLOB_READ_WRITE_TOKEN="dummy-token-for-build"
 RUN npm run build
+ENV BLOB_READ_WRITE_TOKEN=""
 
 # 创建数据库目录的 volume
 VOLUME ["/app/data/db", "/app/public/db"]
