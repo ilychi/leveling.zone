@@ -37,8 +37,11 @@ next-env.d.ts
 
 # IP Databases
 /data/db/
+/db/
+/public/db/
 *.mmdb
 *.ipdb
+*.BIN
 *.bin
 *.csv
 
