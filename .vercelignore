@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+public/db/*.mmdb
+public/db/*.BIN
+public/db/*.csv
+public/db/*.ipdb
+data
+temp.txt 
+pages/index.js 

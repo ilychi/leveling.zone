@@ -1,0 +1,226 @@
+name: Update IP Databases
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天零点运行
+  workflow_dispatch:      # 允许手动触发
+
+permissions:
+  contents: write      # 添加写入权限用于创建 release
+  packages: write     # 添加写入权限用于推送 Docker 镜像
+
+jobs:
+  update-databases:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm install
+        continue-on-error: false
+          
+      - name: Update databases
+        env:
+          IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
+          IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 创建数据目录
+          mkdir -p data/db
+          mkdir -p public/db
+          
+          # 设置当前时间
+          echo "CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_ENV
+          
+          echo "📥 开始更新 IP 数据库..."
+          
+          # 运行更新脚本
+          npm run update-db
+          
+          echo "✅ 数据库更新完成"
+          
+          # 确保所有文件都被复制到 public 目录
+          rm -rf public/db/*  # 清空目标目录
+          cp -f data/db/*.mmdb public/db/ || true
+          cp -f data/db/*.BIN public/db/ || true
+          cp -f data/db/*.ipdb public/db/ || true
+          cp -f data/db/*.csv public/db/ || true
+          
+          # 列出下载的文件
+          echo "📋 数据目录文件列表："
+          ls -la data/db/
+          echo "📋 公共目录文件列表："
+          ls -la public/db/
+        continue-on-error: false
+
+      # 新增: 上传数据库文件到Vercel Blob
+      - name: Upload database files to Vercel Blob
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "⚠️ 未设置BLOB_READ_WRITE_TOKEN，跳过上传到Vercel Blob"
+            exit 0
+          fi
+          
+          echo "📤 开始上传数据库文件到Vercel Blob..."
+          
+          # 创建临时上传脚本
+          cat > upload-to-blob.js << 'EOF'
+          import { put, list } from '@vercel/blob';
+          import fs from 'fs';
+          import path from 'path';
+
+          const BLOB_PREFIX = 'mmdb';
+          const dbDir = path.join(process.cwd(), 'public', 'db');
+
+          async function uploadDatabases() {
+            try {
+              // 获取已有文件列表
+              const { blobs } = await list({ prefix: BLOB_PREFIX });
+              const existingFiles = blobs.map(blob => path.basename(blob.pathname));
+              console.log(`Blob存储中已有 ${existingFiles.length} 个文件`);
+              
+              // 获取本地文件列表
+              const files = fs.readdirSync(dbDir);
+              console.log(`本地有 ${files.length} 个文件待处理`);
+              
+              for (const file of files) {
+                try {
+                  const filePath = path.join(dbDir, file);
+                  const stats = fs.statSync(filePath);
+                  
+                  if (!stats.isFile()) continue;
+                  
+                  // 跳过已存在的文件
+                  if (existingFiles.includes(file)) {
+                    console.log(`${file} 已存在于Blob存储中，跳过上传`);
+                    continue;
+                  }
+                  
+                  console.log(`上传 ${file} (${(stats.size / (1024 * 1024)).toFixed(2)} MB)...`);
+                  const fileContent = fs.readFileSync(filePath);
+                  const blobKey = `${BLOB_PREFIX}/${file}`;
+                  
+                  const { url } = await put(blobKey, fileContent, {
+                    access: 'public',
+                    addRandomSuffix: false,
+                  });
+                  
+                  console.log(`✅ 上传成功: ${url}`);
+                } catch (err) {
+                  console.error(`上传 ${file} 失败:`, err);
+                }
+              }
+              
+              // 显示所有文件
+              const { blobs: updatedBlobs } = await list({ prefix: BLOB_PREFIX });
+              console.log(`\n上传完成，Blob存储中现有 ${updatedBlobs.length} 个文件:`);
+              for (const blob of updatedBlobs) {
+                console.log(`- ${path.basename(blob.pathname)} (${blob.url})`);
+              }
+            } catch (error) {
+              console.error('上传过程出错:', error);
+              process.exit(1);
+            }
+          }
+          
+          uploadDatabases();
+          EOF
+          
+          # 运行上传脚本
+          node --loader tsx upload-to-blob.js
+          
+          echo "✅ Vercel Blob上传完成"
+
+      - name: Set version
+        id: version
+        run: |
+          echo "VERSION=$(date +'%Y.%m.%d')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+          
+      - name: Commit and push if there are changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # 确保添加所有数据库文件
+          git add public/db/*.mmdb || true
+          git add public/db/*.BIN || true
+          git add public/db/*.ipdb || true
+          git add public/db/*.csv || true
+          git status
+          git commit -m "Update IP databases (v${{ steps.version.outputs.VERSION }})" || echo "No changes to commit"
+          git push origin main || echo "No changes to push"
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        if: success()
+        with:
+          tag_name: ip-db-${{ steps.version.outputs.VERSION }}
+          name: IP Database Update ${{ steps.version.outputs.VERSION }}
+          body: |
+            # 🎉 自动更新 IP 数据库 🎉
+            
+            ## 📊 更新信息
+            - **更新时间**: ${{ env.CURRENT_TIME }}
+            - **版本**: ${{ steps.version.outputs.VERSION }}
+            
+            ## 📚 更新的数据库
+            - MaxMind GeoLite2 系列
+            - IP2Location 系列
+            - DB-IP 系列
+            - IPinfo 数据库
+            - GeoCN 数据库
+            - QQWry 数据库
+            - IP-ASN 映射数据
+
+            感谢使用本项目，更多信息请参阅仓库说明。
+          files: |
+            data/db/*.mmdb
+            data/db/*.BIN
+            data/db/*.ipdb
+            data/db/*.csv
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 构建 Docker 镜像
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        if: success()
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: success()
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        if: success()
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:latest
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:${{ steps.version.outputs.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/leveling.zone:${{ steps.version.outputs.DATE }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.title=IP Database Service
+            org.opencontainers.image.description=IP Geolocation and ASN Database Service
+            org.opencontainers.image.licenses=MIT
