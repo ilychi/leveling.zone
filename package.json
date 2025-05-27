@@ -9,6 +9,7 @@
     "lint": "next lint",
     "update-db": "tsx --no-watch src/scripts/update-db.ts",
     "download-db": "echo 'Skipping DB download in Vercel build'",
+    "download-db-local": "tsx --no-watch src/scripts/local-download-db.ts",
     "vercel-build": "npm run build",
     "schedule-update": "tsx --no-watch src/scripts/schedule-update.ts",
     "upload-to-blob": "tsx --no-watch src/scripts/upload-db-to-blob.ts",
