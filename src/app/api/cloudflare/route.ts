@@ -102,7 +102,7 @@ async function getCloudflareSpeedMeta(): Promise<CloudflareSpeedMeta | null> {
   try {
     const response = await fetch('https://speed.cloudflare.com/meta', {
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
@@ -132,7 +132,7 @@ async function getCloudflareInfo(): Promise<CloudflareInfo | null> {
   try {
     const [traceData, metaData] = await Promise.all([
       getCloudflareTrace(),
-      getCloudflareSpeedMeta()
+      getCloudflareSpeedMeta(),
     ]);
 
     if (!traceData || !metaData) return null;
@@ -184,6 +184,8 @@ async function getCloudflareInfo(): Promise<CloudflareInfo | null> {
     return null;
   }
 }
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -255,4 +257,4 @@ export async function GET(request: NextRequest) {
       }
     );
   }
-} 
+}

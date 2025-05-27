@@ -23,7 +23,7 @@ RUN mkdir -p /app/data/db /app/public/db
 RUN echo '#!/bin/sh' > /app/docker-entrypoint.sh && \
     echo 'if [ ! -f /app/data/db/.initialized ]; then' >> /app/docker-entrypoint.sh && \
     echo '  echo "首次启动，开始下载数据库..."' >> /app/docker-entrypoint.sh && \
-    echo '  npm run download-db' >> /app/docker-entrypoint.sh && \
+    echo '  npm run download-db-local' >> /app/docker-entrypoint.sh && \
     echo '  touch /app/data/db/.initialized' >> /app/docker-entrypoint.sh && \
     echo 'fi' >> /app/docker-entrypoint.sh && \
     echo '' >> /app/docker-entrypoint.sh && \

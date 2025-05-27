@@ -25,11 +25,11 @@ async function getMeituanLocation(ip: string) {
     }
 
     const ipLocData = await ipLocResponse.json();
-    
+
     if (!ipLocData.data || !ipLocData.data.lat || !ipLocData.data.lng) {
       return {
         success: false,
-        message: '无法获取位置信息'
+        message: '无法获取位置信息',
       };
     }
 
@@ -65,32 +65,36 @@ async function getMeituanLocation(ip: string) {
             ipLocData.data.rgeo?.city,
             ipLocData.data.rgeo?.district,
             latlngData.data?.areaName,
-            latlngData.data?.detail
-          ].filter(Boolean).join(' '),
+            latlngData.data?.detail,
+          ]
+            .filter(Boolean)
+            .join(' '),
         },
         accuracy: {
           confidence: latlngData.data?.confidence || 0,
           level: latlngData.data?.level || 0,
           source: '美团地图',
-          is_foreign: latlngData.data?.isForeign || false
+          is_foreign: latlngData.data?.isForeign || false,
         },
         meta: {
           timestamp: new Date().toISOString(),
           api_version: '1.0',
           city_id: latlngData.data?.dpCityId,
           area_id: latlngData.data?.area,
-          city_pinyin: latlngData.data?.cityPinyin
-        }
-      }
+          city_pinyin: latlngData.data?.cityPinyin,
+        },
+      },
     };
   } catch (error) {
     console.error('Meituan API Error:', error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : '未知错误'
+      message: error instanceof Error ? error.message : '未知错误',
     };
   }
 }
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,10 +103,13 @@ export async function GET(request: NextRequest) {
     const ip = searchParams.get('ip');
 
     if (!ip) {
-      return NextResponse.json({
-        success: false,
-        message: '请提供IP地址'
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          message: '请提供IP地址',
+        },
+        { status: 400 }
+      );
     }
 
     // 获取地理位置信息
@@ -115,9 +122,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json({
-      success: false,
-      message: '服务器内部错误'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        message: '服务器内部错误',
+      },
+      { status: 500 }
+    );
   }
-} 
+}
